@@ -1,0 +1,83 @@
+#!/usr/bin/env python3
+
+from dataclasses import dataclass
+from pathlib import Path
+import subprocess
+
+
+@dataclass
+class CommandResult:
+    command: str
+    returncode: int
+    stdout: str
+    stderr: str
+
+    @property
+    def passed(self) -> bool:
+        return self.returncode == 0
+
+
+class FixSimpleBuilder:
+    """
+    Minimal A0 Builder heartbeat.
+
+    This is intentionally small.
+    It proves repository access, file editing,
+    command execution, observation and reporting.
+    """
+
+    def __init__(self, repo_path: Path):
+        self.repo_path = repo_path.resolve()
+
+    def read_file(self, relative_path: str) -> str:
+        path = self.repo_path / relative_path
+        return path.read_text(encoding="utf-8")
+
+    def write_file(self, relative_path: str, content: str) -> None:
+        path = self.repo_path / relative_path
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(content, encoding="utf-8")
+
+    def run(self, command: str) -> CommandResult:
+        completed = subprocess.run(
+            command,
+            cwd=self.repo_path,
+            shell=True,
+            text=True,
+            capture_output=True,
+        )
+
+        return CommandResult(
+            command=command,
+            returncode=completed.returncode,
+            stdout=completed.stdout,
+            stderr=completed.stderr,
+        )
+
+
+def main() -> None:
+    repo = Path.cwd()
+    builder = FixSimpleBuilder(repo)
+
+    print("FixSimple Builder A0")
+    print(f"Repository: {repo}")
+    print()
+
+    result = builder.run("git status --short")
+
+    print("Tool: shell")
+    print(f"Command: {result.command}")
+    print(f"Exit code: {result.returncode}")
+
+    if result.stdout:
+        print(result.stdout.rstrip())
+
+    if result.stderr:
+        print(result.stderr.rstrip())
+
+    print()
+    print("HEARTBEAT:", "PASS" if result.passed else "FAIL")
+
+
+if __name__ == "__main__":
+    main()

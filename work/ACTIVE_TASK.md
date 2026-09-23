@@ -1,22 +1,32 @@
 # Active Task
 
-Task: BASELINE-001
+Task: A0-HEARTBEAT
 
-## Objective
+## Current verified state
 
-Create the persistent FixSimple Builder project-memory baseline before writing
-the first executable Builder code.
+Execution layer is proven:
 
-## Acceptance Criteria
+task fixture
+-> file write
+-> verification
+-> FAIL observation
+-> bounded repair
+-> fresh verification
+-> PASS
+-> evidence
 
-- canonical documentation structure exists
-- engineering rules exist
-- current state is recorded
-- initial architecture decision exists
-- local Git repository is operational
-- baseline is committed before A0 implementation begins
+FixSimple Model Interface also exists and is tested.
 
-## Do Not Modify
+## Remaining requirement
 
-No executable Builder architecture should be invented during this task.
-This task establishes the baseline only.
+Replace the hard-coded repair decision with a decision produced through the
+FixSimple Model Interface.
+
+A0 is not complete until the model-driven loop is physically verified.
+
+## Protected principles
+
+- Builder remains FixSimple-owned.
+- Model backend remains replaceable.
+- No provider-specific semantics in the Builder control loop.
+- No paid external model API becomes a permanent runtime dependency.
