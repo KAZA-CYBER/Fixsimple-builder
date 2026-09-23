@@ -34,3 +34,27 @@ For the A0 verification harness this was resolved by:
 
 Future Builder verification must prefer deterministic/fresh execution and must
 not report PASS based solely on source inspection.
+
+## A0 Model-Driven Heartbeat — PASS — 2026-09-23
+
+Verified end-to-end autonomous repair loop:
+
+1. Builder wrote a deliberately broken Python target.
+2. Verification failed with a real traceback.
+3. Failure and source were passed through FixSimple Model Interface.
+4. Local Granite 4.0 1B Q4_K_M generated the repair.
+5. Builder extracted the assistant response and wrote the proposed source.
+6. Verification was rerun.
+7. Second attempt passed with result 5.
+8. Process exited with code 0.
+
+Evidence:
+- FIRST ATTEMPT: FAIL
+- Repair source: LOCAL MODEL
+- Repair iterations: 1
+- SECOND ATTEMPT: PASS
+- verification PASS: 5
+- A0 MODEL-DRIVEN HEARTBEAT: PASS
+- EXIT CODE: 0
+
+A0 acceptance condition is satisfied.

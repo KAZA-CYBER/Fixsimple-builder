@@ -8,4 +8,4 @@ result = add(2, 3)
 if result != 5:
     raise AssertionError(f"expected 5, got {result}")
 
-print("verification PASS")
+print("verification PASS:", result)

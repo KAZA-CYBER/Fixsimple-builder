@@ -18,3 +18,7 @@ venv/
 .vscode/
 .DS_Store
 Thumbs.db
+
+# Local model weights
+models/
+*.gguf
