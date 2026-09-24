@@ -1,0 +1,12 @@
+{
+  "task_id": "V0.4-TASK-RUNNER-001",
+  "instruction": "Repair src/v04_target.py so that tests/v04_verify.py passes. Return only the complete corrected Python source file.",
+  "target_files": [
+    "src/v04_target.py"
+  ],
+  "verification_command": "python3 -B tests/v04_verify.py",
+  "max_repair_iterations": 2,
+  "protected_paths": [
+    ".git"
+  ]
+}
