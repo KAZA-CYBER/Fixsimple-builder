@@ -1,0 +1,20 @@
+{
+  "task_id": "V0.5-TEXT-UTILS-001",
+  "instruction": "Repair src/v05_text_utils.py so that tests/v05_verify.py passes. normalize_text must strip leading and trailing whitespace, convert text to lowercase, and collapse every run of internal whitespace including spaces, tabs, and newlines to exactly one ASCII space. word_count must count the normalized words and return 0 for empty or whitespace-only input. Return only the complete corrected Python source file.",
+  "target_files": [
+    "src/v05_text_utils.py"
+  ],
+  "verification_command": "python3 -B tests/v05_verify.py",
+  "max_repair_iterations": 2,
+  "protected_paths": [
+    ".git",
+    "tests",
+    "tasks",
+    "reports",
+    "src/task_runner.py",
+    "src/task_executor.py",
+    "src/task_contract.py",
+    "src/model_interface.py",
+    "src/local_llama_model.py"
+  ]
+}

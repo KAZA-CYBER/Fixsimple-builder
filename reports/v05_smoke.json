@@ -1,0 +1,7 @@
+{
+  "task_id": "V0.5-TEXT-UTILS-001",
+  "passed": false,
+  "attempts": 2,
+  "verification_output": "Traceback (most recent call last):\n  File \"/workspaces/fixsimple-builder/tests/v05_verify.py\", line 20, in <module>\n    raise AssertionError(\n        f\"normalize_text expected {expected!r}, got {actual!r}\"\n    )\nAssertionError: normalize_text expected 'hello world', got 'helloworld'",
+  "model": "granite-4.0-1b-Q4_K_M-local"
+}
