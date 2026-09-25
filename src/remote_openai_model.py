@@ -65,7 +65,7 @@ CONTEXT:
                 }
             ],
             "temperature": 0,
-            "max_tokens": 512,
+            "max_tokens": 4096,
         }
 
         result = subprocess.run(
