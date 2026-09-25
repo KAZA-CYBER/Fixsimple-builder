@@ -8,6 +8,7 @@ from typing import Optional
 
 from local_llama_model import LocalLlamaModel
 from remote_openai_model import RemoteOpenAIModel
+from repository_understanding import build_repository_map
 from run_recovery import mark_stale_runs
 from run_storage import write_json_atomic
 from task_contract import BuilderTask
@@ -209,9 +210,15 @@ def run_task(
     )
 
     if intake.discovery_required:
+        repository_map = build_repository_map(
+            repo_root,
+            intake.candidate_files,
+        )
+
         selected_targets = select_targets(
             raw_task["instruction"],
             intake.candidate_files,
+            repository_map=repository_map,
         )
 
         discovery_status = (
@@ -230,6 +237,11 @@ def run_task(
         write_json_atomic(
             run_dir / "discovery.json",
             discovery_report.to_dict(),
+        )
+
+        write_json_atomic(
+            run_dir / "repository_map.json",
+            repository_map,
         )
 
         finished_at = datetime.now(timezone.utc)
