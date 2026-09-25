@@ -1,0 +1,12 @@
+{
+  "task_id": "V0.47-SELF-REPAIR-001",
+  "instruction": "Harden the remote OpenAI-compatible response parser. When the HTTP response body is valid JSON but does not contain a usable choices[0].message.content string, raise a clear RuntimeError instead of leaking KeyError, IndexError, TypeError, or AttributeError. Preserve existing behavior for valid responses and for invalid JSON. Select only the implementation source file that parses the remote response; do not select tests.",
+  "verification_command": "PYTHONPATH=src python3 -m unittest tests.test_remote_response_validation tests.test_remote_integration -v",
+  "max_repair_iterations": 2,
+  "protected_paths": [
+    ".git",
+    "tests",
+    "tasks",
+    "runs"
+  ]
+}
