@@ -1,6 +1,7 @@
 import json
 import tempfile
 import unittest
+from unittest.mock import patch
 from pathlib import Path
 import sys
 
@@ -9,7 +10,7 @@ sys.path.insert(
     str(Path(__file__).resolve().parents[1] / "src"),
 )
 
-from task_runner import load_task
+from task_runner import load_task, run_task
 
 
 class TaskRunnerTests(unittest.TestCase):
@@ -54,6 +55,109 @@ class TaskRunnerTests(unittest.TestCase):
 
             with self.assertRaises(ValueError):
                 load_task(path)
+
+
+    def test_remote_requires_base_url(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            target = root / "target.py"
+            target.write_text("x = 1\n")
+
+            task_file = root / "task.json"
+            task_file.write_text(
+                json.dumps(
+                    {
+                        "task_id": "RUNNER-REMOTE-001",
+                        "instruction": "Repair target.",
+                        "target_files": ["target.py"],
+                        "verification_command": "true",
+                    }
+                )
+            )
+
+            with self.assertRaisesRegex(
+                ValueError,
+                "base_url is required for remote backend",
+            ):
+                run_task(
+                    repo_root=root,
+                    task_file=task_file,
+                    model_path=root / "unused.gguf",
+                    backend="remote",
+                )
+
+    def test_reject_invalid_backend(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            target = root / "target.py"
+            target.write_text("x = 1\n")
+
+            task_file = root / "task.json"
+            task_file.write_text(
+                json.dumps(
+                    {
+                        "task_id": "RUNNER-BACKEND-001",
+                        "instruction": "Repair target.",
+                        "target_files": ["target.py"],
+                        "verification_command": "true",
+                    }
+                )
+            )
+
+            with self.assertRaisesRegex(
+                ValueError,
+                "unsupported backend: invented",
+            ):
+                run_task(
+                    repo_root=root,
+                    task_file=task_file,
+                    model_path=root / "unused.gguf",
+                    backend="invented",
+                )
+
+    def test_remote_backend_selection(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            target = root / "target.py"
+            target.write_text("x = 1\n")
+
+            task_file = root / "task.json"
+            task_file.write_text(
+                json.dumps(
+                    {
+                        "task_id": "RUNNER-REMOTE-002",
+                        "instruction": "Repair target.",
+                        "target_files": ["target.py"],
+                        "verification_command": "true",
+                    }
+                )
+            )
+
+            class FakeResult:
+                task_id = "RUNNER-REMOTE-002"
+                passed = True
+                attempts = 1
+                final_verification_output = "PASS"
+
+            with patch("task_runner.RemoteOpenAIModel") as model_cls:
+                with patch("task_runner.TaskExecutor") as executor_cls:
+                    executor_cls.return_value.execute.return_value = FakeResult()
+
+                    report = run_task(
+                        repo_root=root,
+                        task_file=task_file,
+                        model_path=root / "unused.gguf",
+                        backend="remote",
+                        base_url="https://example.invalid",
+                        remote_model="test-remote-model",
+                    )
+
+                    model_cls.assert_called_once_with(
+                        base_url="https://example.invalid",
+                        model="test-remote-model",
+                    )
+                    self.assertTrue(report.passed)
+                    self.assertEqual(report.model, "test-remote-model")
 
 
 if __name__ == "__main__":
