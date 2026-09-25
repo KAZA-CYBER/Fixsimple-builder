@@ -28,6 +28,18 @@ class TaskExecutor:
     def execute(self, task: BuilderTask) -> TaskExecutionResult:
         task.validate(self.repo_root)
 
+        original_contents = {
+            relative_path: self.builder.read_file(relative_path)
+            for relative_path in task.target_files
+        }
+
+        def restore_originals() -> None:
+            for relative_path, content in original_contents.items():
+                self.builder.write_file(
+                    relative_path,
+                    content,
+                )
+
         verification = self.builder.run(
             task.verification_command
         )
@@ -71,62 +83,73 @@ class TaskExecutor:
                 response_contract=response_contract,
             )
 
-            response = self.model.complete(request)
+            try:
+                response = self.model.complete(request)
 
-            if response_contract == "single_file":
-                self.builder.write_file(
-                    task.target_files[0],
-                    response.content,
-                )
-            else:
-                try:
-                    payload = json.loads(response.content)
-                except json.JSONDecodeError as exc:
-                    raise ValueError(
-                        "multi-file model response is not valid JSON"
-                    ) from exc
-
-                if not isinstance(payload, dict):
-                    raise ValueError(
-                        "multi-file model response must be a JSON object"
-                    )
-
-                files = payload.get("files")
-                if not isinstance(files, dict):
-                    raise ValueError(
-                        "multi-file model response must contain "
-                        "a files object"
-                    )
-
-                expected = set(task.target_files)
-                returned = set(files)
-
-                if returned != expected:
-                    missing = sorted(expected - returned)
-                    extra = sorted(returned - expected)
-
-                    raise ValueError(
-                        "multi-file response target mismatch; "
-                        f"missing={missing}, extra={extra}"
-                    )
-
-                for relative_path in task.target_files:
-                    content = files[relative_path]
-
-                    if not isinstance(content, str):
+                if response_contract == "single_file":
+                    pending_writes = {
+                        task.target_files[0]: response.content,
+                    }
+                else:
+                    try:
+                        payload = json.loads(response.content)
+                    except json.JSONDecodeError as exc:
                         raise ValueError(
-                            "multi-file response content must be text: "
-                            + relative_path
+                            "multi-file model response is not valid JSON"
+                        ) from exc
+
+                    if not isinstance(payload, dict):
+                        raise ValueError(
+                            "multi-file model response must be "
+                            "a JSON object"
                         )
 
+                    files = payload.get("files")
+                    if not isinstance(files, dict):
+                        raise ValueError(
+                            "multi-file model response must contain "
+                            "a files object"
+                        )
+
+                    expected = set(task.target_files)
+                    returned = set(files)
+
+                    if returned != expected:
+                        missing = sorted(expected - returned)
+                        extra = sorted(returned - expected)
+
+                        raise ValueError(
+                            "multi-file response target mismatch; "
+                            f"missing={missing}, extra={extra}"
+                        )
+
+                    pending_writes = {}
+
+                    for relative_path in task.target_files:
+                        content = files[relative_path]
+
+                        if not isinstance(content, str):
+                            raise ValueError(
+                                "multi-file response content "
+                                "must be text: "
+                                + relative_path
+                            )
+
+                        pending_writes[relative_path] = content
+
+                for relative_path, content in pending_writes.items():
                     self.builder.write_file(
                         relative_path,
                         content,
                     )
 
-            verification = self.builder.run(
-                task.verification_command
-            )
+                verification = self.builder.run(
+                    task.verification_command
+                )
+
+            except Exception:
+                restore_originals()
+                raise
 
             if verification.passed:
                 return TaskExecutionResult(
@@ -136,12 +159,16 @@ class TaskExecutor:
                     final_verification_output=verification.stdout,
                 )
 
+        final_output = (
+            verification.stderr
+            or verification.stdout
+        )
+
+        restore_originals()
+
         return TaskExecutionResult(
             task_id=task.task_id,
             passed=False,
             attempts=task.max_repair_iterations,
-            final_verification_output=(
-                verification.stderr
-                or verification.stdout
-            ),
+            final_verification_output=final_output,
         )
