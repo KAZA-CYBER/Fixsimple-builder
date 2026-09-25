@@ -1,0 +1,18 @@
+{
+  "task_id": "V0.12-INVENTORY-001",
+  "instruction": "Repair src/v012_inventory.py so tests/v012_verify.py passes. parse_inventory must accept an iterable of text lines. Ignore blank lines and lines whose first non-whitespace character is #. Every other line must contain exactly one colon separating item name and quantity. Normalize item names by stripping leading/trailing whitespace, converting to lowercase, and collapsing every run of internal whitespace to one ASCII space. Item names must not be empty. Quantities must be base-10 integers greater than zero. Aggregate duplicate normalized item names by summing their quantities. Invalid non-comment input must raise ValueError. Return only the complete corrected Python source file.",
+  "target_files": [
+    "src/v012_inventory.py"
+  ],
+  "verification_command": "python3 -B tests/v012_verify.py",
+  "max_repair_iterations": 2,
+  "protected_paths": [
+    "tests/",
+    "tasks/",
+    "src/task_runner.py",
+    "src/task_executor.py",
+    "src/task_contract.py",
+    "src/model_interface.py",
+    "src/remote_openai_model.py"
+  ]
+}
