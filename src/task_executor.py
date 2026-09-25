@@ -8,6 +8,7 @@ from patch_edit import (
     apply_exact_patch,
     parse_multi_patch_response,
     parse_patch_response,
+    plan_multi_patch_writes,
 )
 from task_contract import BuilderTask
 
@@ -76,6 +77,7 @@ class TaskExecutor:
             )
 
         for attempt in range(1, task.max_repair_iterations + 1):
+            writes_started = False
             context_parts = []
 
             for relative_path in task.target_files:
@@ -142,14 +144,14 @@ class TaskExecutor:
                         response.content,
                         expected_targets=list(task.target_files),
                     )
-                    pending_writes = {}
-                    for target, old, new in parsed:
-                        current = self.builder.read_file(target)
-                        pending_writes[target] = apply_exact_patch(
-                            current,
-                            old=old,
-                            new=new,
-                        )
+                    current_contents = {
+                        target: self.builder.read_file(target)
+                        for target in task.target_files
+                    }
+                    pending_writes = plan_multi_patch_writes(
+                        current_contents,
+                        parsed,
+                    )
                 elif response_contract == "single_file":
                     pending_writes = {
                         task.target_files[0]: response.content,
@@ -201,6 +203,8 @@ class TaskExecutor:
 
                         pending_writes[relative_path] = content
 
+                writes_started = True
+
                 for relative_path, content in pending_writes.items():
                     self.builder.write_file(
                         relative_path,
@@ -228,7 +232,8 @@ class TaskExecutor:
                 )
 
             except Exception:
-                restore_originals()
+                if writes_started:
+                    restore_originals()
                 raise
 
             if verification.passed:
