@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Optional
 
 from local_llama_model import LocalLlamaModel
+from model_target_selector import select_targets_with_model
 from remote_openai_model import RemoteOpenAIModel
 from repository_understanding import build_repository_map
 from run_recovery import mark_stale_runs
@@ -38,6 +39,7 @@ class TaskDiscoveryReport:
     candidate_files: list[str]
     selected_targets: list[str]
     status: str
+    selection_source: str = "deterministic"
     passed: bool = False
 
     def to_dict(self) -> dict:
@@ -152,6 +154,7 @@ def run_task(
     base_url: Optional[str] = None,
     remote_model: str = "Qwen/Qwen2.5-Coder-14B-Instruct-AWQ",
     runs_root: Optional[Path] = None,
+    selection_model=None,
 ) -> TaskRunReport:
     repo_root = repo_root.resolve()
     task_file = task_file.resolve()
@@ -215,11 +218,21 @@ def run_task(
             intake.candidate_files,
         )
 
-        selected_targets = select_targets(
-            raw_task["instruction"],
-            intake.candidate_files,
-            repository_map=repository_map,
-        )
+        if selection_model is None:
+            selected_targets = select_targets(
+                raw_task["instruction"],
+                intake.candidate_files,
+                repository_map=repository_map,
+            )
+            selection_source = "deterministic"
+        else:
+            selected_targets = select_targets_with_model(
+                raw_task["instruction"],
+                intake.candidate_files,
+                repository_map,
+                selection_model,
+            )
+            selection_source = "model"
 
         discovery_status = (
             "targets_selected"
@@ -232,6 +245,7 @@ def run_task(
             candidate_files=intake.candidate_files,
             selected_targets=selected_targets,
             status=discovery_status,
+            selection_source=selection_source,
         )
 
         write_json_atomic(
@@ -441,6 +455,12 @@ def main() -> int:
         help="model configuration JSON",
     )
 
+    parser.add_argument(
+        "--model-assisted-selection",
+        action="store_true",
+        help="use the configured model to propose discovery targets",
+    )
+
     args = parser.parse_args()
 
     config = load_model_config(args.config)
@@ -454,6 +474,28 @@ def main() -> int:
         environ=os.environ,
     )
 
+    selection_model = None
+
+    if args.model_assisted_selection:
+        if settings["backend"] == "local":
+            if not settings["model_path"].exists():
+                raise FileNotFoundError(
+                    "model does not exist: "
+                    f"{settings['model_path']}"
+                )
+            selection_model = LocalLlamaModel(
+                str(settings["model_path"])
+            )
+        elif settings["backend"] == "remote":
+            if not settings["base_url"]:
+                raise ValueError(
+                    "base_url is required for remote backend"
+                )
+            selection_model = RemoteOpenAIModel(
+                base_url=settings["base_url"],
+                model=settings["remote_model"],
+            )
+
     report = run_task(
         repo_root=args.repo,
         task_file=args.task,
@@ -462,6 +504,7 @@ def main() -> int:
         backend=settings["backend"],
         base_url=settings["base_url"],
         remote_model=settings["remote_model"],
+        selection_model=selection_model,
     )
 
     print("=== FIXSIMPLE BUILDER TASK REPORT ===")
