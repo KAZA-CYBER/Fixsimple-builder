@@ -33,6 +33,16 @@ class RemoteOpenAIModel(FixSimpleModel):
                 "new is the replacement text. Keep the patch as small as possible.\n"
                 "Do not include markdown fences or explanation."
             )
+        elif request.response_contract == "multi_patch_json":
+            output_instruction = (
+                "Return ONLY valid JSON in exactly this shape:\n"
+                '{"patches":[{"path":"relative/path.py","old":"exact existing text","new":"replacement text"}]}\n'
+                "Include exactly one patch for every requested target file.\n"
+                "Do not include unrequested paths or duplicate paths.\n"
+                "Each old value must be an exact non-empty substring copied from its current file and must identify the change uniquely.\n"
+                "Keep every patch as small as possible.\n"
+                "Do not include markdown fences or explanation."
+            )
         elif request.response_contract == "multi_file_json":
             output_instruction = (
                 "Return ONLY valid JSON in exactly this shape:\n"
