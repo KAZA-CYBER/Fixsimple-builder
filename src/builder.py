@@ -2,6 +2,7 @@
 
 from dataclasses import dataclass
 from pathlib import Path
+import importlib.util
 import subprocess
 
 
@@ -37,6 +38,17 @@ class FixSimpleBuilder:
         path = self.repo_path / relative_path
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(content, encoding="utf-8")
+
+        if path.suffix == ".py":
+            try:
+                cache_path = Path(
+                    importlib.util.cache_from_source(str(path))
+                )
+            except (NotImplementedError, ValueError):
+                cache_path = None
+
+            if cache_path is not None:
+                cache_path.unlink(missing_ok=True)
 
     def run(self, command: str) -> CommandResult:
         completed = subprocess.run(
