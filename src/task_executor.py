@@ -13,6 +13,8 @@ class TaskExecutionResult:
     passed: bool
     attempts: int
     final_verification_output: str
+    audit: list[dict]
+    rolled_back: bool = False
 
 
 class TaskExecutor:
@@ -40,8 +42,23 @@ class TaskExecutor:
                     content,
                 )
 
+        audit = []
+
         verification = self.builder.run(
             task.verification_command
+        )
+
+        initial_output = (
+            verification.stderr.strip()
+            or verification.stdout.strip()
+        )
+
+        audit.append(
+            {
+                "event": "initial_verification",
+                "passed": verification.passed,
+                "output": initial_output,
+            }
         )
 
         if verification.passed:
@@ -50,6 +67,7 @@ class TaskExecutor:
                 passed=True,
                 attempts=0,
                 final_verification_output=verification.stdout,
+                audit=audit,
             )
 
         for attempt in range(1, task.max_repair_iterations + 1):
@@ -147,6 +165,22 @@ class TaskExecutor:
                     task.verification_command
                 )
 
+                attempt_output = (
+                    verification.stderr.strip()
+                    or verification.stdout.strip()
+                )
+
+                audit.append(
+                    {
+                        "event": "repair_attempt",
+                        "attempt": attempt,
+                        "response_contract": response_contract,
+                        "targets": list(task.target_files),
+                        "verification_passed": verification.passed,
+                        "verification_output": attempt_output,
+                    }
+                )
+
             except Exception:
                 restore_originals()
                 raise
@@ -157,6 +191,7 @@ class TaskExecutor:
                     passed=True,
                     attempts=attempt,
                     final_verification_output=verification.stdout,
+                    audit=audit,
                 )
 
         final_output = (
@@ -166,9 +201,19 @@ class TaskExecutor:
 
         restore_originals()
 
+        audit.append(
+            {
+                "event": "rollback",
+                "reason": "repair_iterations_exhausted",
+                "targets": list(task.target_files),
+            }
+        )
+
         return TaskExecutionResult(
             task_id=task.task_id,
             passed=False,
             attempts=task.max_repair_iterations,
             final_verification_output=final_output,
+            audit=audit,
+            rolled_back=True,
         )

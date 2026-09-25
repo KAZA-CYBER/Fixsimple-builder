@@ -18,6 +18,9 @@ class TaskRunReport:
     attempts: int
     verification_output: str
     model: str
+    targets: list[str]
+    rolled_back: bool
+    audit: list[dict]
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -169,6 +172,9 @@ def run_task(
         attempts=result.attempts,
         verification_output=result.final_verification_output.strip(),
         model=model_name,
+        targets=list(task.target_files),
+        rolled_back=getattr(result, "rolled_back", False),
+        audit=getattr(result, "audit", []),
     )
 
     if report_file is not None:

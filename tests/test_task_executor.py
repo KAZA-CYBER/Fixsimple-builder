@@ -294,5 +294,100 @@ class TaskExecutorTests(unittest.TestCase):
             )
 
 
+    def test_audit_records_successful_repair(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+
+            (root / "target.py").write_text(
+                "def add(a, b):\n"
+                "    return a - b\n"
+            )
+
+            (root / "verify.py").write_text(
+                "from target import add\n"
+                "assert add(2, 3) == 5\n"
+                "print('PASS')\n"
+            )
+
+            task = BuilderTask(
+                task_id="V0.15-AUDIT-001",
+                instruction="Repair target.py.",
+                target_files=["target.py"],
+                verification_command="python3 -B verify.py",
+                max_repair_iterations=2,
+            )
+
+            result = TaskExecutor(
+                repo_root=root,
+                model=RepairModel(),
+            ).execute(task)
+
+            self.assertTrue(result.passed)
+            self.assertFalse(result.rolled_back)
+
+            self.assertEqual(
+                [event["event"] for event in result.audit],
+                [
+                    "initial_verification",
+                    "repair_attempt",
+                ],
+            )
+
+            self.assertFalse(
+                result.audit[0]["passed"],
+            )
+            self.assertTrue(
+                result.audit[1]["verification_passed"],
+            )
+            self.assertEqual(
+                result.audit[1]["attempt"],
+                1,
+            )
+
+    def test_audit_records_rollback(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+
+            (root / "target.py").write_text(
+                "def add(a, b):\n"
+                "    return a - b\n"
+            )
+
+            (root / "verify.py").write_text(
+                "from target import add\n"
+                "assert add(2, 3) == 5\n"
+            )
+
+            task = BuilderTask(
+                task_id="V0.15-AUDIT-002",
+                instruction="Repair target.py.",
+                target_files=["target.py"],
+                verification_command="python3 -B verify.py",
+                max_repair_iterations=1,
+            )
+
+            result = TaskExecutor(
+                repo_root=root,
+                model=FailingRepairModel(),
+            ).execute(task)
+
+            self.assertFalse(result.passed)
+            self.assertTrue(result.rolled_back)
+
+            self.assertEqual(
+                [event["event"] for event in result.audit],
+                [
+                    "initial_verification",
+                    "repair_attempt",
+                    "rollback",
+                ],
+            )
+
+            self.assertEqual(
+                result.audit[-1]["reason"],
+                "repair_iterations_exhausted",
+            )
+
+
 if __name__ == "__main__":
     unittest.main()
