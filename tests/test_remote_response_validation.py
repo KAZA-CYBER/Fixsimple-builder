@@ -33,16 +33,18 @@ class RemoteResponseValidationTests(unittest.TestCase):
             "remote_openai_model.subprocess.run",
             return_value=fake,
         ):
-            with self.assertRaisesRegex(
-                RuntimeError,
-                "missing choices",
-            ):
+            with self.assertRaises(RuntimeError) as raised:
                 model.complete(
                     ModelRequest(
                         task="Return corrected source.",
                         context="FILE: demo.py\nx = 1",
                     )
                 )
+
+            self.assertIn(
+                "choices",
+                str(raised.exception).lower(),
+            )
 
 
 if __name__ == "__main__":
