@@ -100,5 +100,35 @@ class BuilderTests(unittest.TestCase):
             )
 
 
+    def test_transactional_write_rejects_source_drift(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            builder = FixSimpleBuilder(root)
+
+            (root / "target.py").write_text("value = 1\n")
+
+            expected = {
+                "target.py": "value = 1\n",
+            }
+
+            (root / "target.py").write_text("value = 99\n")
+
+            with self.assertRaisesRegex(
+                RuntimeError,
+                "target changed before commit",
+            ):
+                builder.write_files_transactionally(
+                    {
+                        "target.py": "value = 2\n",
+                    },
+                    expected_originals=expected,
+                )
+
+            self.assertEqual(
+                (root / "target.py").read_text(),
+                "value = 99\n",
+            )
+
+
 if __name__ == "__main__":
     unittest.main()

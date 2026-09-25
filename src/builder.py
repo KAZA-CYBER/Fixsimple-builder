@@ -55,11 +55,28 @@ class FixSimpleBuilder:
     def write_files_transactionally(
         self,
         pending_writes: dict[str, str],
+        *,
+        expected_originals: dict[str, str] | None = None,
     ) -> None:
         originals = {
             path: self.read_file(path)
             for path in pending_writes
         }
+
+        if expected_originals is not None:
+            for path, current in originals.items():
+                expected = expected_originals.get(path)
+
+                if expected is None:
+                    raise RuntimeError(
+                        "missing expected original for: " + path
+                    )
+
+                if current != expected:
+                    raise RuntimeError(
+                        "target changed before commit: " + path
+                    )
+
         written = []
 
         try:

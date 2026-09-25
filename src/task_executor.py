@@ -79,9 +79,13 @@ class TaskExecutor:
         for attempt in range(1, task.max_repair_iterations + 1):
             writes_started = False
             context_parts = []
+            attempt_base_contents = {
+                relative_path: self.builder.read_file(relative_path)
+                for relative_path in task.target_files
+            }
 
             for relative_path in task.target_files:
-                content = self.builder.read_file(relative_path)
+                content = attempt_base_contents[relative_path]
                 context_parts.append(
                     f"FILE: {relative_path}\n"
                     f"{content}"
@@ -131,7 +135,7 @@ class TaskExecutor:
                         response.content,
                         expected_target=target,
                     )
-                    current = self.builder.read_file(target)
+                    current = attempt_base_contents[target]
                     pending_writes = {
                         target: apply_exact_patch(
                             current,
@@ -144,12 +148,8 @@ class TaskExecutor:
                         response.content,
                         expected_targets=list(task.target_files),
                     )
-                    current_contents = {
-                        target: self.builder.read_file(target)
-                        for target in task.target_files
-                    }
                     pending_writes = plan_multi_patch_writes(
-                        current_contents,
+                        attempt_base_contents,
                         parsed,
                     )
                 elif response_contract == "single_file":
@@ -217,7 +217,8 @@ class TaskExecutor:
 
                 if sandbox_verification.passed:
                     self.builder.write_files_transactionally(
-                        pending_writes
+                        pending_writes,
+                        expected_originals=attempt_base_contents,
                     )
                     writes_started = True
 
