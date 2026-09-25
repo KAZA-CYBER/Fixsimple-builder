@@ -160,6 +160,66 @@ class TaskRunnerTests(unittest.TestCase):
                     self.assertEqual(report.model, "test-remote-model")
 
 
+    def test_run_task_returns_discovery_report_when_targets_missing(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+
+            (root / "src").mkdir()
+            (root / "src" / "app.py").write_text("x = 1\n")
+
+            task_file = root / "task.json"
+            task_file.write_text(
+                json.dumps(
+                    {
+                        "task_id": "RUNNER-DISCOVERY-001",
+                        "instruction": "Repair the application.",
+                        "verification_command": "true",
+                    }
+                )
+            )
+
+            runs_root = root / "runs"
+
+            with patch("task_runner.TaskExecutor") as executor_cls:
+                report = run_task(
+                    repo_root=root,
+                    task_file=task_file,
+                    model_path=root / "unused.gguf",
+                    backend="local",
+                    runs_root=runs_root,
+                )
+
+            executor_cls.assert_not_called()
+
+            self.assertFalse(report.passed)
+            self.assertEqual(
+                report.status,
+                "discovery_required",
+            )
+            self.assertEqual(
+                report.candidate_files,
+                ["src/app.py"],
+            )
+
+            run_dirs = list(runs_root.iterdir())
+            self.assertEqual(len(run_dirs), 1)
+
+            run_dir = run_dirs[0]
+
+            self.assertTrue(
+                (run_dir / "discovery.json").exists()
+            )
+
+            run_manifest = json.loads(
+                (run_dir / "run.json").read_text()
+            )
+
+            self.assertEqual(
+                run_manifest["status"],
+                "discovery_required",
+            )
+
+
     def test_model_settings_defaults(self):
         settings = resolve_model_settings()
 

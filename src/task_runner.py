@@ -12,6 +12,7 @@ from run_recovery import mark_stale_runs
 from run_storage import write_json_atomic
 from task_contract import BuilderTask
 from task_executor import TaskExecutor
+from task_intake import prepare_task_intake
 
 
 @dataclass
@@ -24,6 +25,17 @@ class TaskRunReport:
     targets: list[str]
     rolled_back: bool
     audit: list[dict]
+
+    def to_dict(self) -> dict:
+        return asdict(self)
+
+
+@dataclass
+class TaskDiscoveryReport:
+    task_id: str
+    candidate_files: list[str]
+    status: str = "discovery_required"
+    passed: bool = False
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -142,8 +154,23 @@ def run_task(
     task_file = task_file.resolve()
     model_path = model_path.resolve()
 
-    task = load_task(task_file)
-    task.validate(repo_root)
+    raw_task = json.loads(task_file.read_text())
+
+    allowed_task_fields = {
+        "task_id",
+        "instruction",
+        "target_files",
+        "verification_command",
+        "max_repair_iterations",
+        "protected_paths",
+    }
+
+    unknown_task_fields = set(raw_task) - allowed_task_fields
+    if unknown_task_fields:
+        raise ValueError(
+            "unknown task fields: "
+            + ", ".join(sorted(unknown_task_fields))
+        )
 
     if runs_root is None:
         runs_root = repo_root / "runs"
@@ -151,6 +178,20 @@ def run_task(
     mark_stale_runs(
         runs_root,
         stale_after_seconds=3600,
+    )
+
+    try:
+        task_relative = (
+            task_file.relative_to(repo_root).as_posix()
+        )
+        excluded_files = {task_relative}
+    except ValueError:
+        excluded_files = set()
+
+    intake = prepare_task_intake(
+        repo_root,
+        raw_task,
+        excluded_files=excluded_files,
     )
 
     started_at = datetime.now(timezone.utc)
@@ -162,8 +203,37 @@ def run_task(
 
     write_json_atomic(
         run_dir / "task.json",
-        json.loads(task_file.read_text()),
+        raw_task,
     )
+
+    if intake.discovery_required:
+        discovery_report = TaskDiscoveryReport(
+            task_id=raw_task["task_id"],
+            candidate_files=intake.candidate_files,
+        )
+
+        write_json_atomic(
+            run_dir / "discovery.json",
+            discovery_report.to_dict(),
+        )
+
+        finished_at = datetime.now(timezone.utc)
+
+        write_json_atomic(
+            run_dir / "run.json",
+            {
+                "run_id": run_id,
+                "task_id": raw_task["task_id"],
+                "status": "discovery_required",
+                "started_at": started_at.isoformat(),
+                "finished_at": finished_at.isoformat(),
+                "pid": os.getpid(),
+            },
+        )
+
+        return discovery_report
+
+    task = intake.task
 
     run_manifest = {
         "run_id": run_id,

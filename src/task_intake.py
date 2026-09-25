@@ -15,7 +15,32 @@ class TaskIntakeResult:
 def prepare_task_intake(
     repo_root: Path,
     data: dict,
+    *,
+    excluded_files: set[str] | None = None,
 ) -> TaskIntakeResult:
+    task_id = data.get("task_id")
+    instruction = data.get("instruction")
+    verification_command = data.get(
+        "verification_command"
+    )
+
+    if not isinstance(task_id, str) or not task_id.strip():
+        raise ValueError("task_id is required")
+
+    if (
+        not isinstance(instruction, str)
+        or not instruction.strip()
+    ):
+        raise ValueError("instruction is required")
+
+    if (
+        not isinstance(verification_command, str)
+        or not verification_command.strip()
+    ):
+        raise ValueError(
+            "verification_command is required"
+        )
+
     target_files = data.get("target_files")
 
     if target_files:
@@ -43,6 +68,13 @@ def prepare_task_intake(
         )
 
     candidates = inspect_repository(repo_root)
+
+    excluded = excluded_files or set()
+    candidates = [
+        candidate
+        for candidate in candidates
+        if candidate not in excluded
+    ]
 
     return TaskIntakeResult(
         discovery_required=True,
