@@ -3,6 +3,8 @@ import os
 from datetime import datetime, timezone
 from pathlib import Path
 
+from run_storage import write_json_atomic
+
 
 def mark_stale_runs(
     runs_root: Path,
@@ -63,17 +65,27 @@ def mark_stale_runs(
             try:
                 os.kill(pid, 0)
             except ProcessLookupError:
-                pass
+                interruption_reason = (
+                    "stale_running_process_not_found"
+                )
             except PermissionError:
                 continue
             else:
                 continue
+        else:
+            interruption_reason = (
+                "stale_running_missing_pid"
+            )
 
         manifest["status"] = "interrupted"
         manifest["finished_at"] = now.isoformat()
+        manifest["interruption_reason"] = (
+            interruption_reason
+        )
 
-        manifest_path.write_text(
-            json.dumps(manifest, indent=2) + "\n"
+        write_json_atomic(
+            manifest_path,
+            manifest,
         )
 
         interrupted.append(run_dir.name)

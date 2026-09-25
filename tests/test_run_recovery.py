@@ -54,6 +54,10 @@ class RunRecoveryTests(unittest.TestCase):
                 manifest["status"],
                 "interrupted",
             )
+            self.assertEqual(
+                manifest["interruption_reason"],
+                "stale_running_missing_pid",
+            )
             self.assertIsNotNone(
                 manifest["finished_at"],
             )
@@ -222,6 +226,10 @@ class RunRecoveryTests(unittest.TestCase):
             self.assertEqual(
                 manifest["status"],
                 "interrupted",
+            )
+            self.assertEqual(
+                manifest["interruption_reason"],
+                "stale_running_process_not_found",
             )
 
     def test_skips_malformed_json_manifest(self):
