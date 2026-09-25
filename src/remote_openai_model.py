@@ -105,9 +105,28 @@ CONTEXT:
                 + result.stdout
             ) from exc
 
-        content = (
-            body["choices"][0]["message"]["content"].strip()
-        )
+        choices = body.get("choices")
+        if not choices or len(choices) < 1:
+            raise RuntimeError(
+                "Remote model response missing 'choices' "
+                "or 'choices' is empty"
+            )
+
+        message = choices[0].get("message")
+        if not message:
+            raise RuntimeError(
+                "Remote model response missing 'message' "
+                "in 'choices[0]'"
+            )
+
+        content = message.get("content")
+        if not content:
+            raise RuntimeError(
+                "Remote model response missing 'content' "
+                "in 'choices[0].message'"
+            )
+
+        content = content.strip()
 
         if content.startswith("```"):
             lines = content.splitlines()
