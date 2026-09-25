@@ -213,6 +213,17 @@ class TaskRunnerTests(unittest.TestCase):
             self.assertTrue(
                 (run_dir / "discovery.json").exists()
             )
+            self.assertTrue(
+                (run_dir / "repository_map.json").exists()
+            )
+
+            repository_map = json.loads(
+                (run_dir / "repository_map.json").read_text()
+            )
+            self.assertEqual(
+                repository_map["src/app.py"]["language"],
+                "python",
+            )
 
             run_manifest = json.loads(
                 (run_dir / "run.json").read_text()
