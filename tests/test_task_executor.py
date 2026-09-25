@@ -90,6 +90,23 @@ class PartiallyInvalidMultiFileModel(FixSimpleModel):
         )
 
 
+
+
+class SandboxFailingRepairModel(FixSimpleModel):
+    def complete(self, request: ModelRequest) -> ModelResponse:
+        return ModelResponse(
+            content="def add(a, b):\n    return 999\n",
+            model="sandbox-failing-model",
+        )
+
+
+class SandboxPassingRepairModel(FixSimpleModel):
+    def complete(self, request: ModelRequest) -> ModelResponse:
+        return ModelResponse(
+            content="def add(a, b):\n    return a + b\n",
+            model="sandbox-passing-model",
+        )
+
 class TaskExecutorTests(unittest.TestCase):
 
     def test_general_repair_loop(self):
@@ -386,6 +403,74 @@ class TaskExecutorTests(unittest.TestCase):
             self.assertEqual(
                 result.audit[-1]["reason"],
                 "repair_iterations_exhausted",
+            )
+
+
+    def test_failed_sandbox_verification_does_not_touch_repo(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            original = "def add(a, b):\n    return a - b\n"
+
+            (root / "target.py").write_text(original)
+            (root / "verify.py").write_text(
+                "from target import add\n"
+                "assert add(2, 3) == 5\n"
+            )
+
+            task = BuilderTask(
+                task_id="V0.52-SANDBOX-001",
+                instruction="Repair target.py.",
+                target_files=["target.py"],
+                verification_command="python3 -B verify.py",
+                max_repair_iterations=1,
+            )
+
+            result = TaskExecutor(
+                repo_root=root,
+                model=SandboxFailingRepairModel(),
+            ).execute(task)
+
+            self.assertFalse(result.passed)
+            self.assertEqual(
+                (root / "target.py").read_text(),
+                original,
+            )
+            self.assertFalse(
+                result.audit[1]["sandbox_verification_passed"],
+            )
+
+    def test_passing_sandbox_verification_commits_to_repo(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+
+            (root / "target.py").write_text(
+                "def add(a, b):\n    return a - b\n"
+            )
+            (root / "verify.py").write_text(
+                "from target import add\n"
+                "assert add(2, 3) == 5\n"
+            )
+
+            task = BuilderTask(
+                task_id="V0.52-SANDBOX-002",
+                instruction="Repair target.py.",
+                target_files=["target.py"],
+                verification_command="python3 -B verify.py",
+                max_repair_iterations=1,
+            )
+
+            result = TaskExecutor(
+                repo_root=root,
+                model=SandboxPassingRepairModel(),
+            ).execute(task)
+
+            self.assertTrue(result.passed)
+            self.assertTrue(
+                result.audit[1]["sandbox_verification_passed"],
+            )
+            self.assertIn(
+                "return a + b",
+                (root / "target.py").read_text(),
             )
 
 
