@@ -9,6 +9,7 @@ from typing import Optional
 from local_llama_model import LocalLlamaModel
 from remote_openai_model import RemoteOpenAIModel
 from run_recovery import mark_stale_runs
+from run_storage import write_json_atomic
 from task_contract import BuilderTask
 from task_executor import TaskExecutor
 
@@ -176,8 +177,9 @@ def run_task(
         "pid": os.getpid(),
     }
 
-    (run_dir / "run.json").write_text(
-        json.dumps(run_manifest, indent=2) + "\n"
+    write_json_atomic(
+        run_dir / "run.json",
+        run_manifest,
     )
 
     try:
@@ -237,8 +239,9 @@ def run_task(
             "finished_at": finished_at.isoformat(),
         }
 
-        (run_dir / "run.json").write_text(
-            json.dumps(run_manifest, indent=2) + "\n"
+        write_json_atomic(
+            run_dir / "run.json",
+            run_manifest,
         )
 
         if report_file is not None:
@@ -273,8 +276,9 @@ def run_task(
             "finished_at": finished_at.isoformat(),
         }
 
-        (run_dir / "run.json").write_text(
-            json.dumps(run_manifest, indent=2) + "\n"
+        write_json_atomic(
+            run_dir / "run.json",
+            run_manifest,
         )
 
         raise
