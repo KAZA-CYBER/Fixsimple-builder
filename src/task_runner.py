@@ -22,6 +22,29 @@ class TaskRunReport:
         return asdict(self)
 
 
+def load_model_config(config_file: Path) -> dict:
+    if not config_file.exists():
+        return {}
+
+    data = json.loads(config_file.read_text())
+
+    allowed = {
+        "backend",
+        "base_url",
+        "remote_model",
+        "local_model_path",
+    }
+
+    unknown = set(data) - allowed
+    if unknown:
+        raise ValueError(
+            "unknown model config fields: "
+            + ", ".join(sorted(unknown))
+        )
+
+    return data
+
+
 def load_task(task_file: Path) -> BuilderTask:
     data = json.loads(task_file.read_text())
 
@@ -130,8 +153,8 @@ def main() -> int:
     parser.add_argument(
         "--model",
         type=Path,
-        default=Path("models/granite-4.0-1b-Q4_K_M.gguf"),
-        help="local GGUF model",
+        default=None,
+        help="local GGUF model override",
     )
 
     parser.add_argument(
@@ -144,8 +167,8 @@ def main() -> int:
     parser.add_argument(
         "--backend",
         choices=("local", "remote"),
-        default="local",
-        help="model backend",
+        default=None,
+        help="model backend override",
     )
 
     parser.add_argument(
@@ -156,20 +179,56 @@ def main() -> int:
 
     parser.add_argument(
         "--remote-model",
-        default="Qwen/Qwen2.5-Coder-14B-Instruct-AWQ",
-        help="remote model identifier",
+        default=None,
+        help="remote model identifier override",
+    )
+
+    parser.add_argument(
+        "--config",
+        type=Path,
+        default=Path("config/model.json"),
+        help="model configuration JSON",
     )
 
     args = parser.parse_args()
 
+    config = load_model_config(args.config)
+
+    backend = (
+        args.backend
+        or config.get("backend")
+        or "local"
+    )
+
+    model_path = (
+        args.model
+        or Path(
+            config.get(
+                "local_model_path",
+                "models/granite-4.0-1b-Q4_K_M.gguf",
+            )
+        )
+    )
+
+    base_url = (
+        args.base_url
+        or config.get("base_url")
+    )
+
+    remote_model = (
+        args.remote_model
+        or config.get("remote_model")
+        or "Qwen/Qwen2.5-Coder-14B-Instruct-AWQ"
+    )
+
     report = run_task(
         repo_root=args.repo,
         task_file=args.task,
-        model_path=args.model,
+        model_path=model_path,
         report_file=args.report,
-        backend=args.backend,
-        base_url=args.base_url,
-        remote_model=args.remote_model,
+        backend=backend,
+        base_url=base_url,
+        remote_model=remote_model,
     )
 
     print("=== FIXSIMPLE BUILDER TASK REPORT ===")
