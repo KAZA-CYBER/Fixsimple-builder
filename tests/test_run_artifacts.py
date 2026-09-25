@@ -185,6 +185,12 @@ class RunArtifactTests(unittest.TestCase):
                 manifest["task_id"],
                 "V0.18-FAILED-001",
             )
+            self.assertIn("started_at", manifest)
+            self.assertIn("finished_at", manifest)
+            self.assertGreaterEqual(
+                manifest["finished_at"],
+                manifest["started_at"],
+            )
 
 if __name__ == "__main__":
     unittest.main()

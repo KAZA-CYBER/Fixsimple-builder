@@ -146,7 +146,8 @@ def run_task(
     if runs_root is None:
         runs_root = repo_root / "runs"
 
-    run_id = datetime.now(timezone.utc).strftime(
+    started_at = datetime.now(timezone.utc)
+    run_id = started_at.strftime(
         "%Y%m%dT%H%M%S.%fZ"
     )
     run_dir = runs_root / run_id
@@ -207,10 +208,14 @@ def run_task(
             json.dumps(report.audit, indent=2) + "\n"
         )
 
+        finished_at = datetime.now(timezone.utc)
+
         run_manifest = {
             "run_id": run_id,
             "task_id": task.task_id,
             "status": "passed" if report.passed else "failed",
+            "started_at": started_at.isoformat(),
+            "finished_at": finished_at.isoformat(),
         }
 
         (run_dir / "run.json").write_text(
@@ -239,10 +244,14 @@ def run_task(
             json.dumps([error_event], indent=2) + "\n"
         )
 
+        finished_at = datetime.now(timezone.utc)
+
         run_manifest = {
             "run_id": run_id,
             "task_id": task.task_id,
             "status": "error",
+            "started_at": started_at.isoformat(),
+            "finished_at": finished_at.isoformat(),
         }
 
         (run_dir / "run.json").write_text(
