@@ -136,3 +136,24 @@ def parse_multi_patch_response(
         )
 
     return parsed
+
+
+def plan_multi_patch_writes(
+    current_contents: dict[str, str],
+    patches: list[tuple[str, str, str]],
+) -> dict[str, str]:
+    planned = {}
+
+    for path, old, new in patches:
+        if path not in current_contents:
+            raise ValueError(
+                "multi-patch current content missing: " + path
+            )
+
+        planned[path] = apply_exact_patch(
+            current_contents[path],
+            old=old,
+            new=new,
+        )
+
+    return planned
