@@ -8,6 +8,7 @@ from typing import Optional
 
 from local_llama_model import LocalLlamaModel
 from remote_openai_model import RemoteOpenAIModel
+from run_recovery import mark_stale_runs
 from task_contract import BuilderTask
 from task_executor import TaskExecutor
 
@@ -146,6 +147,11 @@ def run_task(
     if runs_root is None:
         runs_root = repo_root / "runs"
 
+    mark_stale_runs(
+        runs_root,
+        stale_after_seconds=3600,
+    )
+
     started_at = datetime.now(timezone.utc)
     run_id = started_at.strftime(
         "%Y%m%dT%H%M%S.%fZ"
@@ -167,6 +173,7 @@ def run_task(
         "status": "running",
         "started_at": started_at.isoformat(),
         "finished_at": None,
+        "pid": os.getpid(),
     }
 
     (run_dir / "run.json").write_text(

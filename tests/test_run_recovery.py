@@ -1,6 +1,7 @@
 import json
 import tempfile
 import unittest
+import unittest.mock
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 import sys
@@ -131,6 +132,97 @@ class RunRecoveryTests(unittest.TestCase):
                 "running",
             )
 
+
+    def test_leaves_stale_run_with_live_pid_running(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            runs_root = Path(tmp) / "runs"
+            run_dir = runs_root / "run-live"
+            run_dir.mkdir(parents=True)
+
+            started_at = (
+                datetime.now(timezone.utc)
+                - timedelta(hours=1)
+            ).isoformat()
+
+            (run_dir / "run.json").write_text(
+                json.dumps(
+                    {
+                        "run_id": "run-live",
+                        "task_id": "TASK-LIVE",
+                        "status": "running",
+                        "started_at": started_at,
+                        "finished_at": None,
+                        "pid": 1,
+                    }
+                )
+            )
+
+            with unittest.mock.patch(
+                "run_recovery.os.kill",
+                return_value=None,
+            ):
+                interrupted = mark_stale_runs(
+                    runs_root,
+                    stale_after_seconds=60,
+                )
+
+            self.assertEqual(interrupted, [])
+
+            manifest = json.loads(
+                (run_dir / "run.json").read_text()
+            )
+
+            self.assertEqual(
+                manifest["status"],
+                "running",
+            )
+
+    def test_marks_stale_run_with_dead_pid_interrupted(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            runs_root = Path(tmp) / "runs"
+            run_dir = runs_root / "run-dead"
+            run_dir.mkdir(parents=True)
+
+            started_at = (
+                datetime.now(timezone.utc)
+                - timedelta(hours=1)
+            ).isoformat()
+
+            (run_dir / "run.json").write_text(
+                json.dumps(
+                    {
+                        "run_id": "run-dead",
+                        "task_id": "TASK-DEAD",
+                        "status": "running",
+                        "started_at": started_at,
+                        "finished_at": None,
+                        "pid": 999999,
+                    }
+                )
+            )
+
+            with unittest.mock.patch(
+                "run_recovery.os.kill",
+                side_effect=ProcessLookupError,
+            ):
+                interrupted = mark_stale_runs(
+                    runs_root,
+                    stale_after_seconds=60,
+                )
+
+            self.assertEqual(
+                interrupted,
+                ["run-dead"],
+            )
+
+            manifest = json.loads(
+                (run_dir / "run.json").read_text()
+            )
+
+            self.assertEqual(
+                manifest["status"],
+                "interrupted",
+            )
 
 if __name__ == "__main__":
     unittest.main()

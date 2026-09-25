@@ -228,6 +228,14 @@ class RunArtifactTests(unittest.TestCase):
                 self.assertIsNone(
                     manifest["finished_at"],
                 )
+                self.assertIsInstance(
+                    manifest["pid"],
+                    int,
+                )
+                self.assertGreater(
+                    manifest["pid"],
+                    0,
+                )
 
                 return type(
                     "Result",

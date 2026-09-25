@@ -1,4 +1,5 @@
 import json
+import os
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -38,6 +39,18 @@ def mark_stale_runs(
 
         if age_seconds < stale_after_seconds:
             continue
+
+        pid = manifest.get("pid")
+
+        if isinstance(pid, int) and pid > 0:
+            try:
+                os.kill(pid, 0)
+            except ProcessLookupError:
+                pass
+            except PermissionError:
+                continue
+            else:
+                continue
 
         manifest["status"] = "interrupted"
         manifest["finished_at"] = now.isoformat()
