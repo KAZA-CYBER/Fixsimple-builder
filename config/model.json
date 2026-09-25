@@ -1,6 +1,5 @@
 {
   "backend": "remote",
-  "base_url": "https://rqyqjas7qqiss9-8000.proxy.runpod.net",
   "remote_model": "Qwen/Qwen2.5-Coder-14B-Instruct-AWQ",
   "local_model_path": "models/granite-4.0-1b-Q4_K_M.gguf"
 }

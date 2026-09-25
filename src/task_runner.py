@@ -1,5 +1,6 @@
 import argparse
 import json
+import os
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Optional
@@ -212,6 +213,7 @@ def main() -> int:
 
     base_url = (
         args.base_url
+        or os.environ.get("FIXSIMPLE_MODEL_BASE_URL")
         or config.get("base_url")
     )
 
