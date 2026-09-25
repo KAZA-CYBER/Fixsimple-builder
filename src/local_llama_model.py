@@ -10,6 +10,27 @@ class LocalLlamaModel(FixSimpleModel):
         self.model_path = model_path
 
     def complete(self, request: ModelRequest) -> ModelResponse:
+        if request.response_contract == "single_file":
+            output_instruction = (
+                "Return ONLY the complete corrected Python source file.\n"
+                "No markdown fences.\n"
+                "No explanation."
+            )
+        elif request.response_contract == "multi_file_json":
+            output_instruction = (
+                "Return ONLY valid JSON in exactly this shape:\n"
+                '{"files":{"relative/path.py":"complete file content"}}\n'
+                "Include every requested target file exactly once.\n"
+                "Do not include any other files.\n"
+                "No markdown fences.\n"
+                "No explanation."
+            )
+        else:
+            raise ValueError(
+                "unsupported response contract: "
+                + request.response_contract
+            )
+
         prompt = f"""You are the coding model inside FixSimple Builder.
 
 TASK:
@@ -18,9 +39,7 @@ TASK:
 CONTEXT:
 {request.context}
 
-Return ONLY the complete corrected Python source file.
-No markdown fences.
-No explanation.
+{output_instruction}
 """
 
         with tempfile.NamedTemporaryFile(

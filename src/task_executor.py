@@ -1,3 +1,4 @@
+import json
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -54,6 +55,12 @@ class TaskExecutor:
                 or verification.stdout.strip()
             )
 
+            response_contract = (
+                "single_file"
+                if len(task.target_files) == 1
+                else "multi_file_json"
+            )
+
             request = ModelRequest(
                 task=task.instruction,
                 context=(
@@ -61,19 +68,61 @@ class TaskExecutor:
                     + "\n\nVERIFICATION FAILURE:\n"
                     + failure
                 ),
+                response_contract=response_contract,
             )
 
             response = self.model.complete(request)
 
-            if len(task.target_files) != 1:
-                raise NotImplementedError(
-                    "V0.2 supports exactly one editable target file"
+            if response_contract == "single_file":
+                self.builder.write_file(
+                    task.target_files[0],
+                    response.content,
                 )
+            else:
+                try:
+                    payload = json.loads(response.content)
+                except json.JSONDecodeError as exc:
+                    raise ValueError(
+                        "multi-file model response is not valid JSON"
+                    ) from exc
 
-            self.builder.write_file(
-                task.target_files[0],
-                response.content,
-            )
+                if not isinstance(payload, dict):
+                    raise ValueError(
+                        "multi-file model response must be a JSON object"
+                    )
+
+                files = payload.get("files")
+                if not isinstance(files, dict):
+                    raise ValueError(
+                        "multi-file model response must contain "
+                        "a files object"
+                    )
+
+                expected = set(task.target_files)
+                returned = set(files)
+
+                if returned != expected:
+                    missing = sorted(expected - returned)
+                    extra = sorted(returned - expected)
+
+                    raise ValueError(
+                        "multi-file response target mismatch; "
+                        f"missing={missing}, extra={extra}"
+                    )
+
+                for relative_path in task.target_files:
+                    content = files[relative_path]
+
+                    if not isinstance(content, str):
+                        raise ValueError(
+                            "multi-file response content must be text: "
+                            + relative_path
+                        )
+
+                    self.builder.write_file(
+                        relative_path,
+                        content,
+                    )
 
             verification = self.builder.run(
                 task.verification_command

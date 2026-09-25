@@ -6,6 +6,7 @@ from dataclasses import dataclass
 class ModelRequest:
     task: str
     context: str
+    response_contract: str = "single_file"
 
 
 @dataclass

@@ -1,0 +1,20 @@
+{
+  "task_id": "V0.13-MULTI-FILE-001",
+  "instruction": "Repair both target files so tests/v013_verify.py passes. In src/v013_math.py, add(a, b) must return the arithmetic sum of a and b. In src/v013_format.py, format_total(value) must return exactly the string 'Total: <value>'. Return complete corrected contents for both target files according to the requested multi-file response contract.",
+  "target_files": [
+    "src/v013_math.py",
+    "src/v013_format.py"
+  ],
+  "verification_command": "python3 -B tests/v013_verify.py",
+  "max_repair_iterations": 2,
+  "protected_paths": [
+    "tests/",
+    "tasks/",
+    "src/task_runner.py",
+    "src/task_executor.py",
+    "src/task_contract.py",
+    "src/model_interface.py",
+    "src/remote_openai_model.py",
+    "src/local_llama_model.py"
+  ]
+}
