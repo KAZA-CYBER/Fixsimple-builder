@@ -207,6 +207,16 @@ def run_task(
             json.dumps(report.audit, indent=2) + "\n"
         )
 
+        run_manifest = {
+            "run_id": run_id,
+            "task_id": task.task_id,
+            "status": "passed" if report.passed else "failed",
+        }
+
+        (run_dir / "run.json").write_text(
+            json.dumps(run_manifest, indent=2) + "\n"
+        )
+
         if report_file is not None:
             report_file.parent.mkdir(parents=True, exist_ok=True)
             report_file.write_text(
@@ -227,6 +237,16 @@ def run_task(
 
         (run_dir / "audit.json").write_text(
             json.dumps([error_event], indent=2) + "\n"
+        )
+
+        run_manifest = {
+            "run_id": run_id,
+            "task_id": task.task_id,
+            "status": "error",
+        }
+
+        (run_dir / "run.json").write_text(
+            json.dumps(run_manifest, indent=2) + "\n"
         )
 
         raise

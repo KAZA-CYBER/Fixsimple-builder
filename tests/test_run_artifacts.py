@@ -55,6 +55,7 @@ class RunArtifactTests(unittest.TestCase):
             self.assertTrue((run_dir / "task.json").exists())
             self.assertTrue((run_dir / "report.json").exists())
             self.assertTrue((run_dir / "audit.json").exists())
+            self.assertTrue((run_dir / "run.json").exists())
 
     def test_run_exception_creates_error_and_audit(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -101,6 +102,7 @@ class RunArtifactTests(unittest.TestCase):
             self.assertTrue((run_dir / "task.json").exists())
             self.assertTrue((run_dir / "error.json").exists())
             self.assertTrue((run_dir / "audit.json").exists())
+            self.assertTrue((run_dir / "run.json").exists())
 
             error = json.loads(
                 (run_dir / "error.json").read_text()
@@ -117,6 +119,71 @@ class RunArtifactTests(unittest.TestCase):
             self.assertEqual(
                 error["message"],
                 "forced failure",
+            )
+
+    def test_run_failed_writes_failed_manifest(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+
+            (root / "target.py").write_text("x = 1\n")
+            (root / "fake.gguf").write_bytes(b"")
+
+            task_file = root / "task.json"
+            task_file.write_text(
+                json.dumps(
+                    {
+                        "task_id": "V0.18-FAILED-001",
+                        "instruction": "Keep failing verification.",
+                        "target_files": ["target.py"],
+                        "verification_command": "false",
+                        "max_repair_iterations": 1,
+                    }
+                )
+            )
+
+            runs_root = root / "runs"
+
+            failed_result = type(
+                "Result",
+                (),
+                {
+                    "task_id": "V0.18-FAILED-001",
+                    "passed": False,
+                    "attempts": 1,
+                    "final_verification_output": "verification failed",
+                    "rolled_back": True,
+                    "audit": [],
+                },
+            )()
+
+            with patch("task_runner.LocalLlamaModel"), patch(
+                "task_runner.TaskExecutor.execute",
+                return_value=failed_result,
+            ):
+                report = run_task(
+                    repo_root=root,
+                    task_file=task_file,
+                    model_path=root / "fake.gguf",
+                    backend="local",
+                    runs_root=runs_root,
+                )
+
+            self.assertFalse(report.passed)
+
+            run_dirs = list(runs_root.iterdir())
+            self.assertEqual(len(run_dirs), 1)
+
+            manifest = json.loads(
+                (run_dirs[0] / "run.json").read_text()
+            )
+
+            self.assertEqual(
+                manifest["status"],
+                "failed",
+            )
+            self.assertEqual(
+                manifest["task_id"],
+                "V0.18-FAILED-001",
             )
 
 if __name__ == "__main__":
