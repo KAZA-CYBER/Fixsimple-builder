@@ -151,6 +151,10 @@ class QwenRetryRecoveryE2ETests(unittest.TestCase):
                 second_request.context,
             )
             self.assertIn(
+                "return a + b",
+                second_request.context,
+            )
+            self.assertNotIn(
                 "return 10",
                 second_request.context,
             )
