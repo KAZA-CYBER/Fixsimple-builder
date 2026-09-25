@@ -31,6 +31,14 @@ class RemoteOpenAIModel(FixSimpleModel):
                 "No markdown fences.\n"
                 "No explanation."
             )
+        elif request.response_contract == "target_selection_json":
+            output_instruction = (
+                "Return ONLY valid JSON in exactly this shape:\n"
+                '{"targets":["relative/path.py"]}\n'
+                "Choose only paths present in candidate_files.\n"
+                "Do not invent paths or include explanations.\n"
+                "Return at most max_targets paths."
+            )
         else:
             raise ValueError(
                 "unsupported response contract: "
