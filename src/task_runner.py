@@ -161,6 +161,18 @@ def run_task(
         + "\n"
     )
 
+    run_manifest = {
+        "run_id": run_id,
+        "task_id": task.task_id,
+        "status": "running",
+        "started_at": started_at.isoformat(),
+        "finished_at": None,
+    }
+
+    (run_dir / "run.json").write_text(
+        json.dumps(run_manifest, indent=2) + "\n"
+    )
+
     try:
         if backend == "local":
             if not model_path.exists():

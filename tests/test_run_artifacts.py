@@ -192,5 +192,69 @@ class RunArtifactTests(unittest.TestCase):
                 manifest["started_at"],
             )
 
+    def test_run_writes_running_manifest_before_execution(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+
+            (root / "target.py").write_text("x = 1\n")
+            (root / "fake.gguf").write_bytes(b"")
+
+            task_file = root / "task.json"
+            task_file.write_text(
+                json.dumps(
+                    {
+                        "task_id": "V0.20-RUNNING-001",
+                        "instruction": "Observe running manifest.",
+                        "target_files": ["target.py"],
+                        "verification_command": "true",
+                    }
+                )
+            )
+
+            runs_root = root / "runs"
+
+            def inspect_running(*args, **kwargs):
+                run_dirs = list(runs_root.iterdir())
+                self.assertEqual(len(run_dirs), 1)
+
+                manifest = json.loads(
+                    (run_dirs[0] / "run.json").read_text()
+                )
+
+                self.assertEqual(
+                    manifest["status"],
+                    "running",
+                )
+                self.assertIsNone(
+                    manifest["finished_at"],
+                )
+
+                return type(
+                    "Result",
+                    (),
+                    {
+                        "task_id": "V0.20-RUNNING-001",
+                        "passed": True,
+                        "attempts": 0,
+                        "final_verification_output": "PASS",
+                        "rolled_back": False,
+                        "audit": [],
+                    },
+                )()
+
+            with patch("task_runner.LocalLlamaModel"), patch(
+                "task_runner.TaskExecutor.execute",
+                side_effect=inspect_running,
+            ):
+                report = run_task(
+                    repo_root=root,
+                    task_file=task_file,
+                    model_path=root / "fake.gguf",
+                    backend="local",
+                    runs_root=runs_root,
+                )
+
+            self.assertTrue(report.passed)
+
 if __name__ == "__main__":
     unittest.main()
