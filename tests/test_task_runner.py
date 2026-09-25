@@ -10,7 +10,7 @@ sys.path.insert(
     str(Path(__file__).resolve().parents[1] / "src"),
 )
 
-from task_runner import load_task, run_task
+from task_runner import load_task, resolve_model_settings, run_task
 
 
 class TaskRunnerTests(unittest.TestCase):
@@ -158,6 +158,93 @@ class TaskRunnerTests(unittest.TestCase):
                     )
                     self.assertTrue(report.passed)
                     self.assertEqual(report.model, "test-remote-model")
+
+
+    def test_model_settings_defaults(self):
+        settings = resolve_model_settings()
+
+        self.assertEqual(settings["backend"], "local")
+        self.assertEqual(
+            settings["model_path"],
+            Path("models/granite-4.0-1b-Q4_K_M.gguf"),
+        )
+        self.assertIsNone(settings["base_url"])
+        self.assertEqual(
+            settings["remote_model"],
+            "Qwen/Qwen2.5-Coder-14B-Instruct-AWQ",
+        )
+
+    def test_model_settings_config_overrides_defaults(self):
+        settings = resolve_model_settings(
+            config={
+                "backend": "remote",
+                "base_url": "https://config.example",
+                "remote_model": "config-model",
+                "local_model_path": "models/config.gguf",
+            },
+        )
+
+        self.assertEqual(settings["backend"], "remote")
+        self.assertEqual(
+            settings["model_path"],
+            Path("models/config.gguf"),
+        )
+        self.assertEqual(
+            settings["base_url"],
+            "https://config.example",
+        )
+        self.assertEqual(
+            settings["remote_model"],
+            "config-model",
+        )
+
+    def test_model_settings_env_overrides_config_base_url(self):
+        settings = resolve_model_settings(
+            config={
+                "base_url": "https://config.example",
+            },
+            environ={
+                "FIXSIMPLE_MODEL_BASE_URL":
+                    "https://env.example",
+            },
+        )
+
+        self.assertEqual(
+            settings["base_url"],
+            "https://env.example",
+        )
+
+    def test_model_settings_cli_overrides_env_and_config(self):
+        settings = resolve_model_settings(
+            cli_backend="local",
+            cli_model_path=Path("models/cli.gguf"),
+            cli_base_url="https://cli.example",
+            cli_remote_model="cli-model",
+            config={
+                "backend": "remote",
+                "base_url": "https://config.example",
+                "remote_model": "config-model",
+                "local_model_path": "models/config.gguf",
+            },
+            environ={
+                "FIXSIMPLE_MODEL_BASE_URL":
+                    "https://env.example",
+            },
+        )
+
+        self.assertEqual(settings["backend"], "local")
+        self.assertEqual(
+            settings["model_path"],
+            Path("models/cli.gguf"),
+        )
+        self.assertEqual(
+            settings["base_url"],
+            "https://cli.example",
+        )
+        self.assertEqual(
+            settings["remote_model"],
+            "cli-model",
+        )
 
 
 if __name__ == "__main__":

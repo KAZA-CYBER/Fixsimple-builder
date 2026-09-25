@@ -46,6 +46,54 @@ def load_model_config(config_file: Path) -> dict:
     return data
 
 
+def resolve_model_settings(
+    *,
+    cli_backend=None,
+    cli_model_path=None,
+    cli_base_url=None,
+    cli_remote_model=None,
+    config=None,
+    environ=None,
+):
+    config = config or {}
+    environ = environ or {}
+
+    backend = (
+        cli_backend
+        or config.get("backend")
+        or "local"
+    )
+
+    model_path = (
+        cli_model_path
+        or Path(
+            config.get(
+                "local_model_path",
+                "models/granite-4.0-1b-Q4_K_M.gguf",
+            )
+        )
+    )
+
+    base_url = (
+        cli_base_url
+        or environ.get("FIXSIMPLE_MODEL_BASE_URL")
+        or config.get("base_url")
+    )
+
+    remote_model = (
+        cli_remote_model
+        or config.get("remote_model")
+        or "Qwen/Qwen2.5-Coder-14B-Instruct-AWQ"
+    )
+
+    return {
+        "backend": backend,
+        "model_path": Path(model_path),
+        "base_url": base_url,
+        "remote_model": remote_model,
+    }
+
+
 def load_task(task_file: Path) -> BuilderTask:
     data = json.loads(task_file.read_text())
 
@@ -195,42 +243,23 @@ def main() -> int:
 
     config = load_model_config(args.config)
 
-    backend = (
-        args.backend
-        or config.get("backend")
-        or "local"
-    )
-
-    model_path = (
-        args.model
-        or Path(
-            config.get(
-                "local_model_path",
-                "models/granite-4.0-1b-Q4_K_M.gguf",
-            )
-        )
-    )
-
-    base_url = (
-        args.base_url
-        or os.environ.get("FIXSIMPLE_MODEL_BASE_URL")
-        or config.get("base_url")
-    )
-
-    remote_model = (
-        args.remote_model
-        or config.get("remote_model")
-        or "Qwen/Qwen2.5-Coder-14B-Instruct-AWQ"
+    settings = resolve_model_settings(
+        cli_backend=args.backend,
+        cli_model_path=args.model,
+        cli_base_url=args.base_url,
+        cli_remote_model=args.remote_model,
+        config=config,
+        environ=os.environ,
     )
 
     report = run_task(
         repo_root=args.repo,
         task_file=args.task,
-        model_path=model_path,
+        model_path=settings["model_path"],
         report_file=args.report,
-        backend=backend,
-        base_url=base_url,
-        remote_model=remote_model,
+        backend=settings["backend"],
+        base_url=settings["base_url"],
+        remote_model=settings["remote_model"],
     )
 
     print("=== FIXSIMPLE BUILDER TASK REPORT ===")
