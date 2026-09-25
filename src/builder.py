@@ -50,6 +50,25 @@ class FixSimpleBuilder:
             if cache_path is not None:
                 cache_path.unlink(missing_ok=True)
 
+    def write_files_transactionally(
+        self,
+        pending_writes: dict[str, str],
+    ) -> None:
+        originals = {
+            path: self.read_file(path)
+            for path in pending_writes
+        }
+        written = []
+
+        try:
+            for path, content in pending_writes.items():
+                self.write_file(path, content)
+                written.append(path)
+        except Exception:
+            for path in reversed(written):
+                self.write_file(path, originals[path])
+            raise
+
     def run(self, command: str) -> CommandResult:
         completed = subprocess.run(
             command,
