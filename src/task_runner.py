@@ -2,6 +2,7 @@ import argparse
 import json
 import os
 from dataclasses import asdict, dataclass
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
@@ -133,6 +134,7 @@ def run_task(
     backend: str = "local",
     base_url: Optional[str] = None,
     remote_model: str = "Qwen/Qwen2.5-Coder-14B-Instruct-AWQ",
+    runs_root: Optional[Path] = None,
 ) -> TaskRunReport:
     repo_root = repo_root.resolve()
     task_file = task_file.resolve()
@@ -140,6 +142,23 @@ def run_task(
 
     task = load_task(task_file)
     task.validate(repo_root)
+
+    if runs_root is None:
+        runs_root = repo_root / "runs"
+
+    run_id = datetime.now(timezone.utc).strftime(
+        "%Y%m%dT%H%M%S.%fZ"
+    )
+    run_dir = runs_root / run_id
+    run_dir.mkdir(parents=True, exist_ok=False)
+
+    (run_dir / "task.json").write_text(
+        json.dumps(
+            json.loads(task_file.read_text()),
+            indent=2,
+        )
+        + "\n"
+    )
 
     if backend == "local":
         if not model_path.exists():
@@ -177,10 +196,20 @@ def run_task(
         audit=getattr(result, "audit", []),
     )
 
+    run_report = report.to_dict()
+
+    (run_dir / "report.json").write_text(
+        json.dumps(run_report, indent=2) + "\n"
+    )
+
+    (run_dir / "audit.json").write_text(
+        json.dumps(report.audit, indent=2) + "\n"
+    )
+
     if report_file is not None:
         report_file.parent.mkdir(parents=True, exist_ok=True)
         report_file.write_text(
-            json.dumps(report.to_dict(), indent=2) + "\n"
+            json.dumps(run_report, indent=2) + "\n"
         )
 
     return report
