@@ -160,12 +160,9 @@ def run_task(
     run_dir = runs_root / run_id
     run_dir.mkdir(parents=True, exist_ok=False)
 
-    (run_dir / "task.json").write_text(
-        json.dumps(
-            json.loads(task_file.read_text()),
-            indent=2,
-        )
-        + "\n"
+    write_json_atomic(
+        run_dir / "task.json",
+        json.loads(task_file.read_text()),
     )
 
     run_manifest = {
@@ -221,12 +218,14 @@ def run_task(
 
         run_report = report.to_dict()
 
-        (run_dir / "report.json").write_text(
-            json.dumps(run_report, indent=2) + "\n"
+        write_json_atomic(
+            run_dir / "report.json",
+            run_report,
         )
 
-        (run_dir / "audit.json").write_text(
-            json.dumps(report.audit, indent=2) + "\n"
+        write_json_atomic(
+            run_dir / "audit.json",
+            report.audit,
         )
 
         finished_at = datetime.now(timezone.utc)
@@ -258,12 +257,14 @@ def run_task(
             "message": str(exc),
         }
 
-        (run_dir / "error.json").write_text(
-            json.dumps(error_event, indent=2) + "\n"
+        write_json_atomic(
+            run_dir / "error.json",
+            error_event,
         )
 
-        (run_dir / "audit.json").write_text(
-            json.dumps([error_event], indent=2) + "\n"
+        write_json_atomic(
+            run_dir / "audit.json",
+            [error_event],
         )
 
         finished_at = datetime.now(timezone.utc)
