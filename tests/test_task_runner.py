@@ -172,7 +172,7 @@ class TaskRunnerTests(unittest.TestCase):
                 json.dumps(
                     {
                         "task_id": "RUNNER-DISCOVERY-001",
-                        "instruction": "Repair the application.",
+                        "instruction": "Repair app.",
                         "verification_command": "true",
                     }
                 )
@@ -194,10 +194,14 @@ class TaskRunnerTests(unittest.TestCase):
             self.assertFalse(report.passed)
             self.assertEqual(
                 report.status,
-                "discovery_required",
+                "targets_selected",
             )
             self.assertEqual(
                 report.candidate_files,
+                ["src/app.py"],
+            )
+            self.assertEqual(
+                report.selected_targets,
                 ["src/app.py"],
             )
 
@@ -216,7 +220,7 @@ class TaskRunnerTests(unittest.TestCase):
 
             self.assertEqual(
                 run_manifest["status"],
-                "discovery_required",
+                "targets_selected",
             )
 
 

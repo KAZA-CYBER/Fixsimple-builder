@@ -13,6 +13,7 @@ from run_storage import write_json_atomic
 from task_contract import BuilderTask
 from task_executor import TaskExecutor
 from task_intake import prepare_task_intake
+from target_selector import select_targets
 
 
 @dataclass
@@ -34,7 +35,8 @@ class TaskRunReport:
 class TaskDiscoveryReport:
     task_id: str
     candidate_files: list[str]
-    status: str = "discovery_required"
+    selected_targets: list[str]
+    status: str
     passed: bool = False
 
     def to_dict(self) -> dict:
@@ -207,9 +209,22 @@ def run_task(
     )
 
     if intake.discovery_required:
+        selected_targets = select_targets(
+            raw_task["instruction"],
+            intake.candidate_files,
+        )
+
+        discovery_status = (
+            "targets_selected"
+            if selected_targets
+            else "discovery_required"
+        )
+
         discovery_report = TaskDiscoveryReport(
             task_id=raw_task["task_id"],
             candidate_files=intake.candidate_files,
+            selected_targets=selected_targets,
+            status=discovery_status,
         )
 
         write_json_atomic(
@@ -224,7 +239,7 @@ def run_task(
             {
                 "run_id": run_id,
                 "task_id": raw_task["task_id"],
-                "status": "discovery_required",
+                "status": discovery_status,
                 "started_at": started_at.isoformat(),
                 "finished_at": finished_at.isoformat(),
                 "pid": os.getpid(),
