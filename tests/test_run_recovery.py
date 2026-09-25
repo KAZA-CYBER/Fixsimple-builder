@@ -232,6 +232,19 @@ class RunRecoveryTests(unittest.TestCase):
                 "stale_running_process_not_found",
             )
 
+            audit = json.loads(
+                (run_dir / "audit.json").read_text()
+            )
+
+            self.assertEqual(
+                audit[-1]["event"],
+                "run_interrupted",
+            )
+            self.assertEqual(
+                audit[-1]["reason"],
+                "stale_running_process_not_found",
+            )
+
     def test_skips_malformed_json_manifest(self):
         with tempfile.TemporaryDirectory() as tmp:
             runs_root = Path(tmp) / "runs"

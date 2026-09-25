@@ -88,6 +88,32 @@ def mark_stale_runs(
             manifest,
         )
 
+        audit_path = run_dir / "audit.json"
+        audit = []
+
+        if audit_path.exists():
+            try:
+                existing_audit = json.loads(
+                    audit_path.read_text()
+                )
+                if isinstance(existing_audit, list):
+                    audit = existing_audit
+            except (OSError, json.JSONDecodeError):
+                audit = []
+
+        audit.append(
+            {
+                "event": "run_interrupted",
+                "reason": interruption_reason,
+                "finished_at": now.isoformat(),
+            }
+        )
+
+        write_json_atomic(
+            audit_path,
+            audit,
+        )
+
         interrupted.append(run_dir.name)
 
     return interrupted
