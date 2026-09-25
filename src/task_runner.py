@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Optional
 
 from local_llama_model import LocalLlamaModel
+from remote_openai_model import RemoteOpenAIModel
 from task_contract import BuilderTask
 from task_executor import TaskExecutor
 
@@ -54,6 +55,9 @@ def run_task(
     task_file: Path,
     model_path: Path,
     report_file: Optional[Path] = None,
+    backend: str = "local",
+    base_url: Optional[str] = None,
+    remote_model: str = "Qwen/Qwen2.5-Coder-14B-Instruct-AWQ",
 ) -> TaskRunReport:
     repo_root = repo_root.resolve()
     task_file = task_file.resolve()
@@ -62,12 +66,28 @@ def run_task(
     task = load_task(task_file)
     task.validate(repo_root)
 
-    if not model_path.exists():
-        raise FileNotFoundError(
-            f"model does not exist: {model_path}"
+    if backend == "local":
+        if not model_path.exists():
+            raise FileNotFoundError(
+                f"model does not exist: {model_path}"
+            )
+        model = LocalLlamaModel(str(model_path))
+        model_name = "granite-4.0-1b-Q4_K_M-local"
+    elif backend == "remote":
+        if not base_url:
+            raise ValueError(
+                "base_url is required for remote backend"
+            )
+        model = RemoteOpenAIModel(
+            base_url=base_url,
+            model=remote_model,
+        )
+        model_name = remote_model
+    else:
+        raise ValueError(
+            f"unsupported backend: {backend}"
         )
 
-    model = LocalLlamaModel(str(model_path))
     executor = TaskExecutor(repo_root, model)
     result = executor.execute(task)
 
@@ -76,7 +96,7 @@ def run_task(
         passed=result.passed,
         attempts=result.attempts,
         verification_output=result.final_verification_output.strip(),
-        model="granite-4.0-1b-Q4_K_M-local",
+        model=model_name,
     )
 
     if report_file is not None:
@@ -121,6 +141,25 @@ def main() -> int:
         help="optional JSON execution report",
     )
 
+    parser.add_argument(
+        "--backend",
+        choices=("local", "remote"),
+        default="local",
+        help="model backend",
+    )
+
+    parser.add_argument(
+        "--base-url",
+        default=None,
+        help="OpenAI-compatible remote model base URL",
+    )
+
+    parser.add_argument(
+        "--remote-model",
+        default="Qwen/Qwen2.5-Coder-14B-Instruct-AWQ",
+        help="remote model identifier",
+    )
+
     args = parser.parse_args()
 
     report = run_task(
@@ -128,6 +167,9 @@ def main() -> int:
         task_file=args.task,
         model_path=args.model,
         report_file=args.report,
+        backend=args.backend,
+        base_url=args.base_url,
+        remote_model=args.remote_model,
     )
 
     print("=== FIXSIMPLE BUILDER TASK REPORT ===")
