@@ -203,14 +203,29 @@ class TaskExecutor:
 
                         pending_writes[relative_path] = content
 
-                self.builder.write_files_transactionally(
-                    pending_writes
+                sandbox_verification = (
+                    self.builder.verify_pending_writes(
+                        pending_writes,
+                        task.verification_command,
+                    )
                 )
-                writes_started = True
 
-                verification = self.builder.run(
-                    task.verification_command
+                sandbox_output = (
+                    sandbox_verification.stderr.strip()
+                    or sandbox_verification.stdout.strip()
                 )
+
+                if sandbox_verification.passed:
+                    self.builder.write_files_transactionally(
+                        pending_writes
+                    )
+                    writes_started = True
+
+                    verification = self.builder.run(
+                        task.verification_command
+                    )
+                else:
+                    verification = sandbox_verification
 
                 attempt_output = (
                     verification.stderr.strip()
@@ -223,6 +238,9 @@ class TaskExecutor:
                         "attempt": attempt,
                         "response_contract": response_contract,
                         "targets": list(task.target_files),
+                        "sandbox_verification_passed": (
+                            sandbox_verification.passed
+                        ),
                         "verification_passed": verification.passed,
                         "verification_output": attempt_output,
                     }
