@@ -26,6 +26,34 @@ class BuilderTests(unittest.TestCase):
             self.assertTrue(result.passed)
             self.assertEqual(result.stdout.strip(), "heartbeat")
 
+    def test_python_write_invalidates_bytecode_cache(self):
+        with tempfile.TemporaryDirectory() as temp:
+            repo = Path(temp)
+            builder = FixSimpleBuilder(repo)
+
+            source = repo / "module.py"
+            builder.write_file(
+                "module.py",
+                "value = 1\n",
+            )
+
+            cache = Path(
+                __import__("importlib").util.cache_from_source(
+                    str(source)
+                )
+            )
+            cache.parent.mkdir(parents=True, exist_ok=True)
+            cache.write_bytes(b"stale")
+
+            self.assertTrue(cache.exists())
+
+            builder.write_file(
+                "module.py",
+                "value = 2\n",
+            )
+
+            self.assertFalse(cache.exists())
+
 
 if __name__ == "__main__":
     unittest.main()
