@@ -4,6 +4,7 @@ from pathlib import Path
 
 from builder import FixSimpleBuilder
 from model_interface import FixSimpleModel, ModelRequest
+from patch_edit import apply_exact_patch, parse_patch_response
 from task_contract import BuilderTask
 
 
@@ -85,11 +86,19 @@ class TaskExecutor:
                 or verification.stdout.strip()
             )
 
-            response_contract = (
-                "single_file"
-                if len(task.target_files) == 1
-                else "multi_file_json"
-            )
+            if (
+                len(task.target_files) == 1
+                and getattr(
+                    self.model,
+                    "supports_patch_edits",
+                    False,
+                )
+            ):
+                response_contract = "patch_json"
+            elif len(task.target_files) == 1:
+                response_contract = "single_file"
+            else:
+                response_contract = "multi_file_json"
 
             request = ModelRequest(
                 task=task.instruction,
@@ -104,7 +113,21 @@ class TaskExecutor:
             try:
                 response = self.model.complete(request)
 
-                if response_contract == "single_file":
+                if response_contract == "patch_json":
+                    target = task.target_files[0]
+                    _, old, new = parse_patch_response(
+                        response.content,
+                        expected_target=target,
+                    )
+                    current = self.builder.read_file(target)
+                    pending_writes = {
+                        target: apply_exact_patch(
+                            current,
+                            old=old,
+                            new=new,
+                        )
+                    }
+                elif response_contract == "single_file":
                     pending_writes = {
                         task.target_files[0]: response.content,
                     }
