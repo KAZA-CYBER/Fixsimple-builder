@@ -5,6 +5,8 @@ from model_interface import FixSimpleModel, ModelRequest, ModelResponse
 
 
 class RemoteOpenAIModel(FixSimpleModel):
+    supports_patch_edits = True
+
     def __init__(
         self,
         base_url: str,
@@ -21,6 +23,15 @@ class RemoteOpenAIModel(FixSimpleModel):
                 "Return ONLY the complete corrected Python source file.\n"
                 "No markdown fences.\n"
                 "No explanation."
+            )
+        elif request.response_contract == "patch_json":
+            output_instruction = (
+                "Return ONLY valid JSON in exactly this shape:\n"
+                '{"patch":{"path":"relative/path.py","old":"exact existing text","new":"replacement text"}}\n'
+                "The path must be the requested target file.\n"
+                "old must be an exact non-empty substring copied from the current file and must identify the change uniquely.\n"
+                "new is the replacement text. Keep the patch as small as possible.\n"
+                "Do not include markdown fences or explanation."
             )
         elif request.response_contract == "multi_file_json":
             output_instruction = (
