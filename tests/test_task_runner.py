@@ -10,6 +10,7 @@ sys.path.insert(
     str(Path(__file__).resolve().parents[1] / "src"),
 )
 
+from model_interface import FixSimpleModel, ModelResponse
 from task_runner import load_task, resolve_model_settings, run_task
 
 
@@ -234,6 +235,53 @@ class TaskRunnerTests(unittest.TestCase):
                 "targets_selected",
             )
 
+
+
+    def test_discovery_can_use_constrained_model_selection(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+
+            (root / "src").mkdir()
+            (root / "src" / "service.py").write_text(
+                "def parse_total(value):\n"
+                "    return value\n"
+            )
+
+            task_file = root / "task.json"
+            task_file.write_text(
+                json.dumps(
+                    {
+                        "task_id": "RUNNER-DISCOVERY-MODEL-001",
+                        "instruction": "Repair parse_total.",
+                        "verification_command": "true",
+                    }
+                )
+            )
+
+            class FakeSelectionModel(FixSimpleModel):
+                def complete(self, request):
+                    return ModelResponse(
+                        content='{"targets":["src/service.py"]}',
+                        model="fake-model",
+                    )
+
+            report = run_task(
+                repo_root=root,
+                task_file=task_file,
+                model_path=root / "unused.gguf",
+                backend="local",
+                runs_root=root / "runs",
+                selection_model=FakeSelectionModel(),
+            )
+
+            self.assertEqual(
+                report.selected_targets,
+                ["src/service.py"],
+            )
+            self.assertEqual(
+                report.selection_source,
+                "model",
+            )
 
     def test_model_settings_defaults(self):
         settings = resolve_model_settings()
