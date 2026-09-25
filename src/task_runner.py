@@ -160,59 +160,76 @@ def run_task(
         + "\n"
     )
 
-    if backend == "local":
-        if not model_path.exists():
-            raise FileNotFoundError(
-                f"model does not exist: {model_path}"
+    try:
+        if backend == "local":
+            if not model_path.exists():
+                raise FileNotFoundError(
+                    f"model does not exist: {model_path}"
+                )
+            model = LocalLlamaModel(str(model_path))
+            model_name = "granite-4.0-1b-Q4_K_M-local"
+        elif backend == "remote":
+            if not base_url:
+                raise ValueError(
+                    "base_url is required for remote backend"
+                )
+            model = RemoteOpenAIModel(
+                base_url=base_url,
+                model=remote_model,
             )
-        model = LocalLlamaModel(str(model_path))
-        model_name = "granite-4.0-1b-Q4_K_M-local"
-    elif backend == "remote":
-        if not base_url:
+            model_name = remote_model
+        else:
             raise ValueError(
-                "base_url is required for remote backend"
+                f"unsupported backend: {backend}"
             )
-        model = RemoteOpenAIModel(
-            base_url=base_url,
-            model=remote_model,
+
+        executor = TaskExecutor(repo_root, model)
+        result = executor.execute(task)
+
+        report = TaskRunReport(
+            task_id=result.task_id,
+            passed=result.passed,
+            attempts=result.attempts,
+            verification_output=result.final_verification_output.strip(),
+            model=model_name,
+            targets=list(task.target_files),
+            rolled_back=getattr(result, "rolled_back", False),
+            audit=getattr(result, "audit", []),
         )
-        model_name = remote_model
-    else:
-        raise ValueError(
-            f"unsupported backend: {backend}"
-        )
 
-    executor = TaskExecutor(repo_root, model)
-    result = executor.execute(task)
+        run_report = report.to_dict()
 
-    report = TaskRunReport(
-        task_id=result.task_id,
-        passed=result.passed,
-        attempts=result.attempts,
-        verification_output=result.final_verification_output.strip(),
-        model=model_name,
-        targets=list(task.target_files),
-        rolled_back=getattr(result, "rolled_back", False),
-        audit=getattr(result, "audit", []),
-    )
-
-    run_report = report.to_dict()
-
-    (run_dir / "report.json").write_text(
-        json.dumps(run_report, indent=2) + "\n"
-    )
-
-    (run_dir / "audit.json").write_text(
-        json.dumps(report.audit, indent=2) + "\n"
-    )
-
-    if report_file is not None:
-        report_file.parent.mkdir(parents=True, exist_ok=True)
-        report_file.write_text(
+        (run_dir / "report.json").write_text(
             json.dumps(run_report, indent=2) + "\n"
         )
 
-    return report
+        (run_dir / "audit.json").write_text(
+            json.dumps(report.audit, indent=2) + "\n"
+        )
+
+        if report_file is not None:
+            report_file.parent.mkdir(parents=True, exist_ok=True)
+            report_file.write_text(
+                json.dumps(run_report, indent=2) + "\n"
+            )
+
+        return report
+    except Exception as exc:
+        error_event = {
+            "event": "runtime_exception",
+            "exception_type": type(exc).__name__,
+            "message": str(exc),
+        }
+
+        (run_dir / "error.json").write_text(
+            json.dumps(error_event, indent=2) + "\n"
+        )
+
+        (run_dir / "audit.json").write_text(
+            json.dumps([error_event], indent=2) + "\n"
+        )
+
+        raise
 
 
 def main() -> int:

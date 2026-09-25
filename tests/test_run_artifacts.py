@@ -56,6 +56,68 @@ class RunArtifactTests(unittest.TestCase):
             self.assertTrue((run_dir / "report.json").exists())
             self.assertTrue((run_dir / "audit.json").exists())
 
+    def test_run_exception_creates_error_and_audit(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+
+            (root / "target.py").write_text("x = 1\n")
+            (root / "fake.gguf").write_bytes(b"")
+
+            task_file = root / "task.json"
+            task_file.write_text(
+                json.dumps(
+                    {
+                        "task_id": "V0.17-ERROR-001",
+                        "instruction": "Trigger executor failure.",
+                        "target_files": ["target.py"],
+                        "verification_command": "true",
+                    }
+                )
+            )
+
+            runs_root = root / "runs"
+
+            with patch("task_runner.LocalLlamaModel"), patch(
+                "task_runner.TaskExecutor.execute",
+                side_effect=RuntimeError("forced failure"),
+            ):
+                with self.assertRaisesRegex(
+                    RuntimeError,
+                    "forced failure",
+                ):
+                    run_task(
+                        repo_root=root,
+                        task_file=task_file,
+                        model_path=root / "fake.gguf",
+                        backend="local",
+                        runs_root=runs_root,
+                    )
+
+            run_dirs = list(runs_root.iterdir())
+            self.assertEqual(len(run_dirs), 1)
+
+            run_dir = run_dirs[0]
+
+            self.assertTrue((run_dir / "task.json").exists())
+            self.assertTrue((run_dir / "error.json").exists())
+            self.assertTrue((run_dir / "audit.json").exists())
+
+            error = json.loads(
+                (run_dir / "error.json").read_text()
+            )
+
+            self.assertEqual(
+                error["event"],
+                "runtime_exception",
+            )
+            self.assertEqual(
+                error["exception_type"],
+                "RuntimeError",
+            )
+            self.assertEqual(
+                error["message"],
+                "forced failure",
+            )
 
 if __name__ == "__main__":
     unittest.main()
