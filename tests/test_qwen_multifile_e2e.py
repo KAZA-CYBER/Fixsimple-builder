@@ -192,7 +192,7 @@ class QwenMultiFileE2ETests(unittest.TestCase):
             self.assertTrue(repair_events)
             self.assertEqual(
                 repair_events[-1]["response_contract"],
-                "multi_file_json",
+                "multi_patch_json",
             )
 
             final_manifest = json.loads(
