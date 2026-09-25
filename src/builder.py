@@ -4,6 +4,8 @@ from dataclasses import dataclass
 from pathlib import Path
 import importlib.util
 import subprocess
+import shutil
+import tempfile
 
 
 @dataclass
@@ -68,6 +70,31 @@ class FixSimpleBuilder:
             for path in reversed(written):
                 self.write_file(path, originals[path])
             raise
+
+    def verify_pending_writes(
+        self,
+        pending_writes: dict[str, str],
+        command: str,
+    ) -> CommandResult:
+        with tempfile.TemporaryDirectory() as tmp:
+            sandbox = Path(tmp) / "repo"
+            shutil.copytree(
+                self.repo_path,
+                sandbox,
+                ignore=shutil.ignore_patterns(
+                    ".git",
+                    "__pycache__",
+                    "*.pyc",
+                    "runs",
+                ),
+            )
+
+            sandbox_builder = FixSimpleBuilder(sandbox)
+
+            for path, content in pending_writes.items():
+                sandbox_builder.write_file(path, content)
+
+            return sandbox_builder.run(command)
 
     def run(self, command: str) -> CommandResult:
         completed = subprocess.run(
