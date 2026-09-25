@@ -224,5 +224,47 @@ class RunRecoveryTests(unittest.TestCase):
                 "interrupted",
             )
 
+    def test_skips_malformed_json_manifest(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            runs_root = Path(tmp) / "runs"
+            run_dir = runs_root / "run-bad-json"
+            run_dir.mkdir(parents=True)
+
+            (run_dir / "run.json").write_text(
+                "{not valid json"
+            )
+
+            interrupted = mark_stale_runs(
+                runs_root,
+                stale_after_seconds=0,
+            )
+
+            self.assertEqual(interrupted, [])
+
+    def test_skips_invalid_started_at(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            runs_root = Path(tmp) / "runs"
+            run_dir = runs_root / "run-bad-time"
+            run_dir.mkdir(parents=True)
+
+            (run_dir / "run.json").write_text(
+                json.dumps(
+                    {
+                        "run_id": "run-bad-time",
+                        "task_id": "TASK-BAD-TIME",
+                        "status": "running",
+                        "started_at": "not-a-timestamp",
+                        "finished_at": None,
+                    }
+                )
+            )
+
+            interrupted = mark_stale_runs(
+                runs_root,
+                stale_after_seconds=0,
+            )
+
+            self.assertEqual(interrupted, [])
+
 if __name__ == "__main__":
     unittest.main()

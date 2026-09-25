@@ -25,7 +25,15 @@ def mark_stale_runs(
         if not manifest_path.exists():
             continue
 
-        manifest = json.loads(manifest_path.read_text())
+        try:
+            manifest = json.loads(
+                manifest_path.read_text()
+            )
+        except (OSError, json.JSONDecodeError):
+            continue
+
+        if not isinstance(manifest, dict):
+            continue
 
         if manifest.get("status") != "running":
             continue
@@ -34,7 +42,16 @@ def mark_stale_runs(
         if not started_at_raw:
             continue
 
-        started_at = datetime.fromisoformat(started_at_raw)
+        try:
+            started_at = datetime.fromisoformat(
+                started_at_raw
+            )
+        except (TypeError, ValueError):
+            continue
+
+        if started_at.tzinfo is None:
+            continue
+
         age_seconds = (now - started_at).total_seconds()
 
         if age_seconds < stale_after_seconds:
