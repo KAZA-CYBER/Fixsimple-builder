@@ -203,13 +203,10 @@ class TaskExecutor:
 
                         pending_writes[relative_path] = content
 
+                self.builder.write_files_transactionally(
+                    pending_writes
+                )
                 writes_started = True
-
-                for relative_path, content in pending_writes.items():
-                    self.builder.write_file(
-                        relative_path,
-                        content,
-                    )
 
                 verification = self.builder.run(
                     task.verification_command

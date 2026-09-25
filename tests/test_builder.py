@@ -1,4 +1,5 @@
 import unittest
+from unittest.mock import patch
 import tempfile
 from pathlib import Path
 import sys
@@ -53,6 +54,50 @@ class BuilderTests(unittest.TestCase):
             )
 
             self.assertFalse(cache.exists())
+
+
+    def test_transactional_write_restores_earlier_file_on_failure(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            builder = FixSimpleBuilder(root)
+
+            (root / "a.py").write_text("a = 0\n")
+            (root / "b.py").write_text("b = 0\n")
+
+            original_write = builder.write_file
+            failed_once = False
+
+            def flaky_write(path, content):
+                nonlocal failed_once
+                if path == "b.py" and not failed_once:
+                    failed_once = True
+                    raise OSError("simulated write failure")
+                return original_write(path, content)
+
+            with patch.object(
+                builder,
+                "write_file",
+                side_effect=flaky_write,
+            ):
+                with self.assertRaisesRegex(
+                    OSError,
+                    "simulated write failure",
+                ):
+                    builder.write_files_transactionally(
+                        {
+                            "a.py": "a = 1\n",
+                            "b.py": "b = 1\n",
+                        }
+                    )
+
+            self.assertEqual(
+                (root / "a.py").read_text(),
+                "a = 0\n",
+            )
+            self.assertEqual(
+                (root / "b.py").read_text(),
+                "b = 0\n",
+            )
 
 
 if __name__ == "__main__":
