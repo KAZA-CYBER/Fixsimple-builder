@@ -4,7 +4,9 @@ from pathlib import Path
 
 from approved_execution import execute_approved_run
 from local_llama_model import LocalLlamaModel
-from remote_openai_model import RemoteOpenAIModel
+import os
+
+from remote_model_factory import build_remote_model
 from target_approval import approve_discovery_run
 
 
@@ -37,9 +39,10 @@ def build_model(
                 "base_url is required for remote backend"
             )
         return (
-            RemoteOpenAIModel(
+            build_remote_model(
                 base_url=base_url,
                 model=remote_model,
+                environ=os.environ,
             ),
             remote_model,
         )
