@@ -100,25 +100,25 @@ CONTEXT:
 
         try:
             result = subprocess.run(
-            [
-                "curl",
-                "-sS",
-                "--fail-with-body",
-                "--max-time",
-                str(self.timeout),
-                f"{self.base_url}/v1/chat/completions",
-                "-X",
-                "POST",
-                "-H",
-                "Content-Type: application/json",
-                "-H",
-                "Accept: application/json",
-                "-d",
-                json.dumps(payload),
-            ],
-            text=True,
-            capture_output=True,
-        )
+                [
+                    "curl",
+                    "-sS",
+                    "--fail-with-body",
+                    "--max-time",
+                    str(self.timeout),
+                    f"{self.base_url}/v1/chat/completions",
+                    "-X",
+                    "POST",
+                    "-H",
+                    "Content-Type: application/json",
+                    "-H",
+                    "Accept: application/json",
+                    "-d",
+                    json.dumps(payload),
+                ],
+                text=True,
+                capture_output=True,
+            )
 
         finally:
             if (
