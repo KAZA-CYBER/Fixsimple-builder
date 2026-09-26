@@ -12,10 +12,12 @@ class RemoteOpenAIModel(FixSimpleModel):
         base_url: str,
         model: str,
         timeout: int = 180,
+        lifecycle=None,
     ):
         self.base_url = base_url.rstrip("/")
         self.model = model
         self.timeout = timeout
+        self.lifecycle = lifecycle
 
     def complete(self, request: ModelRequest) -> ModelResponse:
         if request.response_contract == "single_file":
@@ -89,26 +91,41 @@ CONTEXT:
             "max_tokens": 4096,
         }
 
-        result = subprocess.run(
-            [
-                "curl",
-                "-sS",
-                "--fail-with-body",
-                "--max-time",
-                str(self.timeout),
-                f"{self.base_url}/v1/chat/completions",
-                "-X",
-                "POST",
-                "-H",
-                "Content-Type: application/json",
-                "-H",
-                "Accept: application/json",
-                "-d",
-                json.dumps(payload),
-            ],
-            text=True,
-            capture_output=True,
-        )
+        lease_id = None
+
+        if self.lifecycle is not None:
+            lease_id = self.lifecycle.begin_request(
+                request_timeout=self.timeout,
+            )
+
+        try:
+            result = subprocess.run(
+                [
+                    "curl",
+                    "-sS",
+                    "--fail-with-body",
+                    "--max-time",
+                    str(self.timeout),
+                    f"{self.base_url}/v1/chat/completions",
+                    "-X",
+                    "POST",
+                    "-H",
+                    "Content-Type: application/json",
+                    "-H",
+                    "Accept: application/json",
+                    "-d",
+                    json.dumps(payload),
+                ],
+                text=True,
+                capture_output=True,
+            )
+
+        finally:
+            if (
+                self.lifecycle is not None
+                and lease_id is not None
+            ):
+                self.lifecycle.end_request(lease_id)
 
         if result.returncode != 0:
             raise RuntimeError(
