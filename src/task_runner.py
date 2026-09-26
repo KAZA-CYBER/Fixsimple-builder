@@ -8,7 +8,7 @@ from typing import Optional
 
 from local_llama_model import LocalLlamaModel
 from model_target_selector import select_targets_with_model
-from remote_openai_model import RemoteOpenAIModel
+from remote_model_factory import build_remote_model
 from repository_understanding import build_repository_map
 from run_recovery import mark_stale_runs
 from run_storage import write_json_atomic
@@ -303,9 +303,10 @@ def run_task(
                 raise ValueError(
                     "base_url is required for remote backend"
                 )
-            model = RemoteOpenAIModel(
+            model = build_remote_model(
                 base_url=base_url,
                 model=remote_model,
+                environ=os.environ,
             )
             model_name = remote_model
         else:
@@ -491,9 +492,10 @@ def main() -> int:
                 raise ValueError(
                     "base_url is required for remote backend"
                 )
-            selection_model = RemoteOpenAIModel(
+            selection_model = build_remote_model(
                 base_url=settings["base_url"],
                 model=settings["remote_model"],
+                environ=os.environ,
             )
 
     report = run_task(
