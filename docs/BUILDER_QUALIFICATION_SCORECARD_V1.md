@@ -11,9 +11,9 @@ Use one row per frozen case. Do not rewrite a failed result after changing the b
 | Q5 | final-failure rollback | existing controlled-failure coverage | PENDING | - | - | - | - | PENDING |
 | Q6 | protected-path containment | existing containment coverage | PENDING | - | - | - | - | PENDING |
 | Q7 | pre-commit sandbox rejection | V0.52 baseline | PENDING | - | - | - | - | PENDING |
-| Q8 | target drift protection | PR #16 pending | BLOCKED | - | - | - | - | BLOCKED |
-| Q9 | real FixSimple task #1 | not yet selected | PENDING | - | - | - | - | PENDING |
-| Q10 | real FixSimple task #2 | not yet selected | PENDING | - | - | - | - | PENDING |
+| Q8 | target drift protection | PR #16 code-reviewed; no CI execution evidence | BLOCKED | - | - | - | - | BLOCKED |
+| Q9 | real FixSimple task #1 | frozen as issue #19 (F1 contract boundary) | PENDING | - | - | - | - | PENDING |
+| Q10 | real FixSimple task #2 | frozen as issue #20 (F2 transition guard) | PENDING | - | - | - | - | PENDING |
 
 ## Run metadata
 
